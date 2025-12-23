@@ -5,6 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { useApp } from "@/lib/context";
 import { parseFile } from "@/lib/parsers";
+import { generateSampleTransactions } from "@/lib/sampleData";
 import { v4 as uuidv4 } from "uuid";
 import type { Transaction } from "@/lib/types";
 
@@ -13,11 +14,27 @@ export function ImportTab() {
   const [isDragging, setIsDragging] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [isAIProcessing, setIsAIProcessing] = useState(false);
+  const [isLoadingDemo, setIsLoadingDemo] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [successCount, setSuccessCount] = useState<number | null>(null);
   const [lastFileText, setLastFileText] = useState<string | null>(null);
   const [showAIOption, setShowAIOption] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleLoadDemo = async () => {
+    setIsLoadingDemo(true);
+    setError(null);
+    try {
+      const sampleTransactions = generateSampleTransactions();
+      await addTransactions(sampleTransactions);
+      setSuccessCount(sampleTransactions.length);
+    } catch (err) {
+      setError("Failed to load demo data");
+      console.error(err);
+    } finally {
+      setIsLoadingDemo(false);
+    }
+  };
 
   const handleFile = useCallback(async (file: File) => {
     setIsProcessing(true);
@@ -224,7 +241,7 @@ export function ImportTab() {
             <div className={`w-16 h-16 rounded-full flex items-center justify-center mb-4 transition-colors ${
               isDragging ? "bg-primary/20" : "bg-primary/10"
             }`}>
-              {isProcessing || isAIProcessing ? (
+              {isProcessing || isAIProcessing || isLoadingDemo ? (
                 <svg className="w-8 h-8 text-primary animate-spin" fill="none" viewBox="0 0 24 24">
                   <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                   <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
@@ -237,7 +254,7 @@ export function ImportTab() {
             </div>
             
             <h3 className="text-lg font-semibold mb-2">
-              {isProcessing ? "Processing..." : isAIProcessing ? "AI Processing..." : "Upload Statement"}
+              {isProcessing ? "Processing..." : isAIProcessing ? "AI Processing..." : isLoadingDemo ? "Loading Demo..." : "Upload Statement"}
             </h3>
             
             <p className="text-muted-foreground text-sm mb-6 max-w-sm">
@@ -300,17 +317,34 @@ export function ImportTab() {
               accept=".csv,.xlsx,.xls,.pdf"
               onChange={handleFileInput}
               className="hidden"
-              disabled={isProcessing || isAIProcessing}
+              disabled={isProcessing || isAIProcessing || isLoadingDemo}
             />
-            <Button 
-              onClick={() => fileInputRef.current?.click()}
-              disabled={isProcessing || isAIProcessing}
-            >
-              <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-              </svg>
-              Select File
-            </Button>
+            
+            <div className="flex flex-col sm:flex-row gap-3">
+              <Button 
+                onClick={() => fileInputRef.current?.click()}
+                disabled={isProcessing || isAIProcessing || isLoadingDemo}
+              >
+                <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                </svg>
+                Select File
+              </Button>
+              
+              {transactions.length === 0 && (
+                <Button 
+                  variant="outline"
+                  onClick={handleLoadDemo}
+                  disabled={isProcessing || isAIProcessing || isLoadingDemo}
+                >
+                  <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  Try Demo Data
+                </Button>
+              )}
+            </div>
             
             <p className="text-xs text-muted-foreground mt-4">
               Supported: CSV, Excel (.xlsx), PDF

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect, useCallback, useRef } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -16,6 +16,11 @@ export function TransactionsTab() {
   const [tagFilter, setTagFilter] = useState<TransactionTag | "all">("all");
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [showRulesManager, setShowRulesManager] = useState(false);
+  const [focusedIndex, setFocusedIndex] = useState<number>(-1);
+  const [editingMerchant, setEditingMerchant] = useState<string | null>(null);
+  const [editMerchantValue, setEditMerchantValue] = useState("");
+  const tableRef = useRef<HTMLDivElement>(null);
+  const searchRef = useRef<HTMLInputElement>(null);
 
   const filteredTransactions = useMemo(() => {
     return transactions
@@ -58,12 +63,10 @@ export function TransactionsTab() {
   const handleCreateRuleFromSelection = async () => {
     if (selectedIds.size === 0) return;
 
-    // Get the first selected transaction
     const firstId = Array.from(selectedIds)[0];
     const tx = transactions.find((t) => t.id === firstId);
     if (!tx) return;
 
-    // Extract a keyword from the merchant
     const keyword = tx.merchant.split(" ")[0];
     const promptKeyword = prompt(
       "Create a rule for transactions containing:",
@@ -77,6 +80,8 @@ export function TransactionsTab() {
       id: uuidv4(),
       contains: promptKeyword,
       tag: tag as Exclude<TransactionTag, null>,
+      conditions: [],
+      action: { tag: tag as Exclude<TransactionTag, null> },
     });
 
     alert(`Rule created: "${promptKeyword}" → ${tag}`);
@@ -98,6 +103,102 @@ export function TransactionsTab() {
     } else {
       setSelectedIds(new Set(filteredTransactions.map((tx) => tx.id)));
     }
+  };
+
+  // Keyboard shortcuts
+  const handleKeyDown = useCallback((e: KeyboardEvent) => {
+    // Ignore if in input field (except for navigation)
+    const isInInput = document.activeElement?.tagName === "INPUT" || 
+                      document.activeElement?.tagName === "SELECT" ||
+                      document.activeElement?.tagName === "TEXTAREA";
+    
+    if (isInInput && !["ArrowUp", "ArrowDown", "Escape"].includes(e.key)) {
+      return;
+    }
+
+    // Navigation
+    if (e.key === "ArrowDown" || e.key === "j") {
+      e.preventDefault();
+      setFocusedIndex((prev) => Math.min(prev + 1, filteredTransactions.length - 1));
+    } else if (e.key === "ArrowUp" || e.key === "k") {
+      e.preventDefault();
+      setFocusedIndex((prev) => Math.max(prev - 1, 0));
+    }
+    
+    // Selection
+    else if (e.key === " " && focusedIndex >= 0) {
+      e.preventDefault();
+      const tx = filteredTransactions[focusedIndex];
+      if (tx) toggleSelect(tx.id);
+    }
+    
+    // Tagging shortcuts (work on focused or all selected)
+    else if (e.key === "r" || e.key === "R") {
+      e.preventDefault();
+      if (selectedIds.size > 0) {
+        handleBulkTag("reimbursable");
+      } else if (focusedIndex >= 0) {
+        const tx = filteredTransactions[focusedIndex];
+        if (tx) handleTagChange(tx.id, "reimbursable");
+      }
+    } else if (e.key === "p" || e.key === "P") {
+      e.preventDefault();
+      if (selectedIds.size > 0) {
+        handleBulkTag("personal");
+      } else if (focusedIndex >= 0) {
+        const tx = filteredTransactions[focusedIndex];
+        if (tx) handleTagChange(tx.id, "personal");
+      }
+    } else if (e.key === "i" || e.key === "I") {
+      e.preventDefault();
+      if (selectedIds.size > 0) {
+        handleBulkTag("ignore");
+      } else if (focusedIndex >= 0) {
+        const tx = filteredTransactions[focusedIndex];
+        if (tx) handleTagChange(tx.id, "ignore");
+      }
+    }
+    
+    // Search focus
+    else if (e.key === "/" && !isInInput) {
+      e.preventDefault();
+      searchRef.current?.focus();
+    }
+    
+    // Escape to clear
+    else if (e.key === "Escape") {
+      setSelectedIds(new Set());
+      setFocusedIndex(-1);
+      setEditingMerchant(null);
+      (document.activeElement as HTMLElement)?.blur();
+    }
+  }, [filteredTransactions, focusedIndex, selectedIds, handleBulkTag, handleTagChange]);
+
+  useEffect(() => {
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [handleKeyDown]);
+
+  // Scroll focused row into view
+  useEffect(() => {
+    if (focusedIndex >= 0 && tableRef.current) {
+      const row = tableRef.current.querySelector(`[data-row-index="${focusedIndex}"]`);
+      row?.scrollIntoView({ block: "nearest", behavior: "smooth" });
+    }
+  }, [focusedIndex]);
+
+  // Inline merchant editing
+  const startEditingMerchant = (tx: Transaction) => {
+    setEditingMerchant(tx.id);
+    setEditMerchantValue(tx.merchant);
+  };
+
+  const saveEditedMerchant = async () => {
+    if (editingMerchant && editMerchantValue.trim()) {
+      await updateTransaction(editingMerchant, { merchant: editMerchantValue.trim() });
+    }
+    setEditingMerchant(null);
+    setEditMerchantValue("");
   };
 
   const getTagBadge = (tag: TransactionTag) => {
@@ -172,13 +273,36 @@ export function TransactionsTab() {
         </Button>
       </div>
 
+      {/* Keyboard shortcuts hint */}
+      <div className="flex flex-wrap gap-2 text-xs text-muted-foreground">
+        <span className="px-2 py-1 rounded bg-muted">
+          <kbd className="font-mono">R</kbd> Reimbursable
+        </span>
+        <span className="px-2 py-1 rounded bg-muted">
+          <kbd className="font-mono">P</kbd> Personal
+        </span>
+        <span className="px-2 py-1 rounded bg-muted">
+          <kbd className="font-mono">I</kbd> Ignore
+        </span>
+        <span className="px-2 py-1 rounded bg-muted">
+          <kbd className="font-mono">↑↓</kbd> Navigate
+        </span>
+        <span className="px-2 py-1 rounded bg-muted">
+          <kbd className="font-mono">Space</kbd> Select
+        </span>
+        <span className="px-2 py-1 rounded bg-muted">
+          <kbd className="font-mono">/</kbd> Search
+        </span>
+      </div>
+
       {/* Filters */}
       <Card>
         <CardContent className="pt-6">
           <div className="flex flex-wrap gap-4">
             <div className="flex-1 min-w-[200px]">
               <Input
-                placeholder="Search merchants, descriptions..."
+                ref={searchRef}
+                placeholder="Search merchants, descriptions... (press / to focus)"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
               />
@@ -227,13 +351,13 @@ export function TransactionsTab() {
               </span>
               <div className="flex gap-2 flex-wrap">
                 <Button size="sm" variant="outline" onClick={() => handleBulkTag("reimbursable")}>
-                  Tag Reimbursable
+                  <kbd className="mr-1 text-xs opacity-50">R</kbd> Reimbursable
                 </Button>
                 <Button size="sm" variant="outline" onClick={() => handleBulkTag("personal")}>
-                  Tag Personal
+                  <kbd className="mr-1 text-xs opacity-50">P</kbd> Personal
                 </Button>
                 <Button size="sm" variant="outline" onClick={() => handleBulkTag("ignore")}>
-                  Tag Ignore
+                  <kbd className="mr-1 text-xs opacity-50">I</kbd> Ignore
                 </Button>
                 <Button size="sm" variant="outline" onClick={handleCreateRuleFromSelection}>
                   <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -263,7 +387,7 @@ export function TransactionsTab() {
           </div>
         </CardHeader>
         <CardContent>
-          <div className="rounded-lg border overflow-hidden">
+          <div ref={tableRef} className="rounded-lg border overflow-hidden">
             <table className="w-full">
               <thead>
                 <tr className="border-b bg-muted/50">
@@ -283,8 +407,19 @@ export function TransactionsTab() {
                 </tr>
               </thead>
               <tbody>
-                {filteredTransactions.map((tx) => (
-                  <tr key={tx.id} className="border-b last:border-0 hover:bg-muted/30 transition-colors">
+                {filteredTransactions.map((tx, index) => (
+                  <tr 
+                    key={tx.id} 
+                    data-row-index={index}
+                    className={`border-b last:border-0 transition-colors cursor-pointer ${
+                      focusedIndex === index 
+                        ? "bg-primary/10 ring-1 ring-primary/30" 
+                        : selectedIds.has(tx.id)
+                        ? "bg-muted/50"
+                        : "hover:bg-muted/30"
+                    }`}
+                    onClick={() => setFocusedIndex(index)}
+                  >
                     <td className="px-4 py-3">
                       <input
                         type="checkbox"
@@ -295,10 +430,32 @@ export function TransactionsTab() {
                     </td>
                     <td className="px-4 py-3 text-sm text-muted-foreground">{tx.date}</td>
                     <td className="px-4 py-3">
-                      <div className="text-sm font-medium">{tx.merchant}</div>
-                      <div className="text-xs text-muted-foreground truncate max-w-xs" title={tx.description}>
-                        {tx.description.substring(0, 50)}{tx.description.length > 50 ? "..." : ""}
-                      </div>
+                      {editingMerchant === tx.id ? (
+                        <Input
+                          value={editMerchantValue}
+                          onChange={(e) => setEditMerchantValue(e.target.value)}
+                          onBlur={saveEditedMerchant}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") saveEditedMerchant();
+                            if (e.key === "Escape") setEditingMerchant(null);
+                          }}
+                          autoFocus
+                          className="h-7 text-sm"
+                        />
+                      ) : (
+                        <div 
+                          className="cursor-pointer group"
+                          onDoubleClick={() => startEditingMerchant(tx)}
+                          title="Double-click to edit"
+                        >
+                          <div className="text-sm font-medium group-hover:text-primary transition-colors">
+                            {tx.merchant}
+                          </div>
+                          <div className="text-xs text-muted-foreground truncate max-w-xs" title={tx.description}>
+                            {tx.description.substring(0, 50)}{tx.description.length > 50 ? "..." : ""}
+                          </div>
+                        </div>
+                      )}
                     </td>
                     <td className={`px-4 py-3 text-sm text-right font-mono ${tx.amount >= 0 ? "text-green-500" : "text-foreground"}`}>
                       {formatAmount(tx.amount)} {tx.currency}

@@ -1,10 +1,11 @@
 import { get, set, del } from "idb-keyval";
-import type { Transaction, Rule, CardSafetyData } from "./types";
+import type { Transaction, Rule, CardSafetyData, ClaimBatch } from "./types";
 
 const TRANSACTIONS_KEY = "reimburse_transactions";
 const RULES_KEY = "reimburse_rules";
 const CARD_SAFETY_KEY = "reimburse_card_safety";
 const LICENSE_KEY = "reimburse_license";
+const BATCHES_KEY = "reimburse_batches";
 
 // Transactions
 export async function saveTransactions(transactions: Transaction[]): Promise<void> {
@@ -103,3 +104,38 @@ export async function clearLicense(): Promise<void> {
   await del(LICENSE_KEY);
 }
 
+// Claim Batches
+export async function saveBatches(batches: ClaimBatch[]): Promise<void> {
+  await set(BATCHES_KEY, batches);
+}
+
+export async function loadBatches(): Promise<ClaimBatch[]> {
+  const data = await get<ClaimBatch[]>(BATCHES_KEY);
+  return data || [];
+}
+
+export async function addBatch(batch: ClaimBatch): Promise<ClaimBatch[]> {
+  const batches = await loadBatches();
+  batches.push(batch);
+  await saveBatches(batches);
+  return batches;
+}
+
+export async function updateBatch(
+  id: string,
+  updates: Partial<ClaimBatch>
+): Promise<ClaimBatch[]> {
+  const batches = await loadBatches();
+  const updated = batches.map((b) =>
+    b.id === id ? { ...b, ...updates } : b
+  );
+  await saveBatches(updated);
+  return updated;
+}
+
+export async function deleteBatch(id: string): Promise<ClaimBatch[]> {
+  const batches = await loadBatches();
+  const filtered = batches.filter((b) => b.id !== id);
+  await saveBatches(filtered);
+  return filtered;
+}

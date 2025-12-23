@@ -2,6 +2,7 @@ import Papa from "papaparse";
 import * as XLSX from "xlsx";
 import { v4 as uuidv4 } from "uuid";
 import type { Transaction, Rule } from "./types";
+import { ruleMatchesTransaction, getRuleTag } from "./types";
 
 // Parse date from various formats
 function parseDate(dateStr: string): string {
@@ -95,11 +96,21 @@ function extractMerchant(description: string): string {
 
 // Apply rules to get default tag
 function applyRules(transaction: Partial<Transaction>, rules: Rule[]): Transaction["tag"] {
-  const searchText = `${transaction.merchant} ${transaction.description}`.toLowerCase();
+  // Create a mock transaction for matching
+  const mockTx: Transaction = {
+    id: "",
+    date: transaction.date || "",
+    merchant: transaction.merchant || "",
+    description: transaction.description || "",
+    amount: transaction.amount || 0,
+    currency: transaction.currency || "AED",
+    tag: null,
+    createdAt: "",
+  };
   
   for (const rule of rules) {
-    if (searchText.includes(rule.contains.toLowerCase())) {
-      return rule.tag;
+    if (ruleMatchesTransaction(rule, mockTx)) {
+      return getRuleTag(rule);
     }
   }
   

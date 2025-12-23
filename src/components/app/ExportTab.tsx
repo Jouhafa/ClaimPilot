@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useApp } from "@/lib/context";
 import { exportToCSV, exportToExcel, downloadCSV, downloadExcel, calculateSummary } from "@/lib/export";
+import { EXPORT_PRESETS, exportToPresetCSV, downloadPresetCSV, type ExportPreset } from "@/lib/exportPresets";
 import { saveLicense, loadLicense, clearLicense } from "@/lib/storage";
 
 export function ExportTab() {
@@ -17,6 +18,7 @@ export function ExportTab() {
   const [isVerifying, setIsVerifying] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [purchaseInfo, setPurchaseInfo] = useState<{ email?: string } | null>(null);
+  const [selectedPreset, setSelectedPreset] = useState<ExportPreset>("simple");
 
   const summary = useMemo(() => calculateSummary(transactions), [transactions]);
   const reimbursables = useMemo(
@@ -59,7 +61,7 @@ export function ExportTab() {
       } else {
         setError(data.error || "Invalid license key");
       }
-    } catch (err) {
+    } catch {
       setError("Failed to verify license. Please try again.");
     } finally {
       setIsVerifying(false);
@@ -85,6 +87,13 @@ export function ExportTab() {
     const blob = exportToExcel(transactions);
     const date = new Date().toISOString().split("T")[0];
     downloadExcel(blob, `reimbursements-${date}.xlsx`);
+  };
+
+  const handleExportPreset = () => {
+    const csv = exportToPresetCSV(transactions, selectedPreset);
+    if (csv) {
+      downloadPresetCSV(csv, selectedPreset);
+    }
   };
 
   return (
@@ -197,16 +206,86 @@ export function ExportTab() {
         </div>
       )}
 
-      {/* Export Options */}
+      {/* Export Presets */}
+      <Card className={!isUnlocked ? "opacity-60" : ""}>
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle className="text-lg">Export Presets</CardTitle>
+              <CardDescription>
+                Choose a format that matches your finance team&apos;s requirements
+              </CardDescription>
+            </div>
+            {!isUnlocked && <Badge variant="outline">Locked</Badge>}
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+            {(Object.keys(EXPORT_PRESETS) as ExportPreset[]).map((preset) => {
+              const config = EXPORT_PRESETS[preset];
+              return (
+                <div
+                  key={preset}
+                  className={`p-4 rounded-lg border cursor-pointer transition-colors ${
+                    selectedPreset === preset
+                      ? "border-primary bg-primary/5"
+                      : "border-border hover:border-primary/50"
+                  } ${!isUnlocked ? "pointer-events-none" : ""}`}
+                  onClick={() => setSelectedPreset(preset)}
+                >
+                  <div className="flex items-center gap-2 mb-2">
+                    <input
+                      type="radio"
+                      checked={selectedPreset === preset}
+                      onChange={() => setSelectedPreset(preset)}
+                      className="text-primary"
+                      disabled={!isUnlocked}
+                    />
+                    <span className="font-medium text-sm">{config.name}</span>
+                  </div>
+                  <p className="text-xs text-muted-foreground">{config.description}</p>
+                  <div className="mt-2 text-xs text-muted-foreground">
+                    Columns: {config.columns.slice(0, 3).join(", ")}
+                    {config.columns.length > 3 && "..."}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+          <Button
+            className="w-full"
+            disabled={!isUnlocked || reimbursables.length === 0}
+            onClick={handleExportPreset}
+          >
+            {!isUnlocked ? (
+              <>
+                <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                </svg>
+                Unlock to Export
+              </>
+            ) : (
+              <>
+                <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+                Export as {EXPORT_PRESETS[selectedPreset].name}
+              </>
+            )}
+          </Button>
+        </CardContent>
+      </Card>
+
+      {/* Standard Export Options */}
       <div className="grid md:grid-cols-2 gap-6">
         <Card className={!isUnlocked ? "opacity-60" : ""}>
           <CardHeader>
             <div className="flex items-center justify-between">
-              <CardTitle className="text-lg">CSV Export</CardTitle>
+              <CardTitle className="text-lg">Standard CSV</CardTitle>
               {!isUnlocked && <Badge variant="outline">Locked</Badge>}
             </div>
             <CardDescription>
-              Download as CSV for spreadsheet apps
+              Basic CSV with all fields
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -225,6 +304,7 @@ export function ExportTab() {
             </div>
             <Button
               className="w-full"
+              variant="outline"
               disabled={!isUnlocked || reimbursables.length === 0}
               onClick={handleExportCSV}
             >
@@ -254,7 +334,7 @@ export function ExportTab() {
               {!isUnlocked && <Badge variant="outline">Locked</Badge>}
             </div>
             <CardDescription>
-              Download as Excel with multiple sheets
+              Multi-sheet Excel workbook
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -273,6 +353,7 @@ export function ExportTab() {
             </div>
             <Button
               className="w-full"
+              variant="outline"
               disabled={!isUnlocked || reimbursables.length === 0}
               onClick={handleExportExcel}
             >
@@ -302,23 +383,24 @@ export function ExportTab() {
           <CardHeader>
             <CardTitle className="text-lg">Export Preview</CardTitle>
             <CardDescription>
-              Preview of your export data
+              Preview of your export data ({EXPORT_PRESETS[selectedPreset].name})
             </CardDescription>
           </CardHeader>
           <CardContent>
             <div className="rounded-lg border bg-muted/30 p-4 font-mono text-xs overflow-x-auto">
               <pre className="text-muted-foreground">
-{`Date,Merchant,Description,Amount,Currency,Status
-${reimbursables.slice(0, 5).map((t) => 
-  `${t.date},${t.merchant},"${t.description.substring(0, 30)}...",${Math.abs(t.amount).toFixed(2)},${t.currency},${t.status || "draft"}`
-).join("\n")}
-${reimbursables.length > 5 ? `\n... and ${reimbursables.length - 5} more rows` : ""}
+{`${EXPORT_PRESETS[selectedPreset].columns.join(",")}
+${reimbursables.slice(0, 3).map((t) => {
+  const mapped = EXPORT_PRESETS[selectedPreset].mapRow(t);
+  return EXPORT_PRESETS[selectedPreset].columns.map(col => {
+    const val = mapped[col];
+    return typeof val === 'string' && val.length > 25 ? val.substring(0, 25) + '...' : val;
+  }).join(",");
+}).join("\n")}
+${reimbursables.length > 3 ? `\n... and ${reimbursables.length - 3} more rows` : ""}
 
 --- Summary ---
-Draft: ${summary.byStatus.draft.total.toFixed(2)} AED (${summary.byStatus.draft.count} items)
-Submitted: ${summary.byStatus.submitted.total.toFixed(2)} AED (${summary.byStatus.submitted.count} items)
-Paid: ${summary.byStatus.paid.total.toFixed(2)} AED (${summary.byStatus.paid.count} items)
-Total: ${summary.grandTotal.toFixed(2)} AED`}
+Total: ${summary.grandTotal.toFixed(2)} AED (${summary.totalCount} items)`}
               </pre>
             </div>
           </CardContent>

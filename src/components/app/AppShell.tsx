@@ -10,6 +10,7 @@ import { TransactionsTab } from "./TransactionsTab";
 import { ReimbursementsTab } from "./ReimbursementsTab";
 import { CardSafetyTab } from "./CardSafetyTab";
 import { ExportTab } from "./ExportTab";
+import { OnboardingWizard } from "./OnboardingWizard";
 
 type TabId = "import" | "transactions" | "reimbursements" | "card-safety" | "export";
 
@@ -148,6 +149,7 @@ function AppContent() {
       {/* Main content */}
       <main className="flex-1 overflow-auto">
         <div className="p-8">
+          <OnboardingWizard />
           {renderContent()}
         </div>
       </main>
