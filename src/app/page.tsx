@@ -1,4 +1,4 @@
-import { Hero, PainPoints, HowItWorks, Features, Pricing, Footer } from "@/components/landing";
+import { Hero, PainPoints, HowItWorks, Features, Pricing, FAQ, Footer } from "@/components/landing";
 
 export default function Home() {
   return (
@@ -8,6 +8,7 @@ export default function Home() {
       <HowItWorks />
       <Features />
       <Pricing />
+      <FAQ />
       <Footer />
     </main>
   );

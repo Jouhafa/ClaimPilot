@@ -4,4 +4,5 @@ export { TransactionsTab } from "./TransactionsTab";
 export { ReimbursementsTab } from "./ReimbursementsTab";
 export { CardSafetyTab } from "./CardSafetyTab";
 export { ExportTab } from "./ExportTab";
+export { RulesManager } from "./RulesManager";
 

@@ -1,16 +1,23 @@
 import { NextRequest, NextResponse } from "next/server";
 
-// Gumroad product ID - replace with your actual product ID
-const GUMROAD_PRODUCT_ID = process.env.GUMROAD_PRODUCT_ID || "your-product-id";
-
 export async function POST(request: NextRequest) {
   try {
     const { licenseKey } = await request.json();
 
     if (!licenseKey) {
       return NextResponse.json(
-        { valid: false, error: "License key is required" },
+        { valid: false, error: "Please enter a license key" },
         { status: 400 }
+      );
+    }
+
+    const productId = process.env.GUMROAD_PRODUCT_ID;
+    
+    if (!productId) {
+      console.error("GUMROAD_PRODUCT_ID environment variable not set");
+      return NextResponse.json(
+        { valid: false, error: "Payment system not configured. Please contact support." },
+        { status: 500 }
       );
     }
 
@@ -21,8 +28,8 @@ export async function POST(request: NextRequest) {
         "Content-Type": "application/x-www-form-urlencoded",
       },
       body: new URLSearchParams({
-        product_id: GUMROAD_PRODUCT_ID,
-        license_key: licenseKey,
+        product_id: productId,
+        license_key: licenseKey.trim(),
       }),
     });
 
@@ -38,17 +45,28 @@ export async function POST(request: NextRequest) {
         },
       });
     } else {
+      // Provide helpful error messages
+      let errorMessage = "Invalid license key";
+      if (data.message?.includes("not found")) {
+        errorMessage = "License key not found. Please check and try again.";
+      } else if (data.message?.includes("refunded")) {
+        errorMessage = "This license has been refunded and is no longer valid.";
+      } else if (data.message?.includes("chargebacked")) {
+        errorMessage = "This license has been disputed and is no longer valid.";
+      } else if (data.message) {
+        errorMessage = data.message;
+      }
+      
       return NextResponse.json({
         valid: false,
-        error: data.message || "Invalid license key",
+        error: errorMessage,
       });
     }
   } catch (error) {
     console.error("License verification error:", error);
     return NextResponse.json(
-      { valid: false, error: "Verification failed" },
+      { valid: false, error: "Unable to verify license. Please check your internet connection and try again." },
       { status: 500 }
     );
   }
 }
-

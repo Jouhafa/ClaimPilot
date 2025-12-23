@@ -1,38 +1,142 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useRef } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useApp } from "@/lib/context";
 import { parseFile } from "@/lib/parsers";
+import { v4 as uuidv4 } from "uuid";
+import type { Transaction } from "@/lib/types";
 
 export function ImportTab() {
   const { addTransactions, rules, transactions, deleteAllTransactions } = useApp();
   const [isDragging, setIsDragging] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [isAIProcessing, setIsAIProcessing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [successCount, setSuccessCount] = useState<number | null>(null);
+  const [lastFileText, setLastFileText] = useState<string | null>(null);
+  const [showAIOption, setShowAIOption] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleFile = useCallback(async (file: File) => {
     setIsProcessing(true);
     setError(null);
     setSuccessCount(null);
+    setShowAIOption(false);
+    setLastFileText(null);
 
     try {
       const parsed = await parseFile(file, rules);
+      
       if (parsed.length === 0) {
-        setError("No transactions found in the file. Please check the format.");
+        // Try to extract text for AI fallback
+        if (file.name.toLowerCase().endsWith(".pdf")) {
+          const text = await extractPDFText(file);
+          setLastFileText(text);
+          setShowAIOption(true);
+          setError("No transactions found. Try AI-powered parsing for better results.");
+        } else {
+          setError("No transactions found in the file. Please check the format.");
+        }
         return;
       }
+      
       await addTransactions(parsed);
       setSuccessCount(parsed.length);
     } catch (err) {
       console.error("Parse error:", err);
-      setError(err instanceof Error ? err.message : "Failed to parse file");
+      
+      // If PDF parsing fails, offer AI fallback
+      if (file.name.toLowerCase().endsWith(".pdf")) {
+        try {
+          const text = await extractPDFText(file);
+          setLastFileText(text);
+          setShowAIOption(true);
+          setError("PDF parsing failed. Try AI-powered parsing for better results.");
+        } catch {
+          setError("Failed to read PDF file.");
+        }
+      } else {
+        setError(err instanceof Error ? err.message : "Failed to parse file");
+      }
     } finally {
       setIsProcessing(false);
     }
   }, [addTransactions, rules]);
+
+  const extractPDFText = async (file: File): Promise<string> => {
+    const pdfjsLib = await import("pdfjs-dist");
+    pdfjsLib.GlobalWorkerOptions.workerSrc = "/pdf.worker.min.mjs";
+    
+    const arrayBuffer = await file.arrayBuffer();
+    const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+    
+    let fullText = "";
+    for (let i = 1; i <= pdf.numPages; i++) {
+      const page = await pdf.getPage(i);
+      const textContent = await page.getTextContent();
+      const pageText = textContent.items
+        .map((item) => ("str" in item ? item.str : ""))
+        .join(" ");
+      fullText += pageText + "\n";
+    }
+    
+    return fullText;
+  };
+
+  const handleAIParsing = async () => {
+    if (!lastFileText) return;
+    
+    setIsAIProcessing(true);
+    setError(null);
+    
+    try {
+      const response = await fetch("/api/parse-pdf", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text: lastFileText }),
+      });
+      
+      const data = await response.json();
+      
+      if (!response.ok) {
+        throw new Error(data.error || "AI parsing failed");
+      }
+      
+      if (data.transactions && data.transactions.length > 0) {
+        // Convert to full Transaction objects
+        const fullTransactions: Transaction[] = data.transactions.map((tx: {
+          date: string;
+          description: string;
+          merchant: string;
+          amount: number;
+          currency: string;
+        }) => ({
+          id: uuidv4(),
+          date: tx.date,
+          description: tx.description,
+          merchant: tx.merchant,
+          amount: tx.amount,
+          currency: tx.currency || "AED",
+          tag: null,
+          createdAt: new Date().toISOString(),
+        }));
+        
+        await addTransactions(fullTransactions);
+        setSuccessCount(fullTransactions.length);
+        setShowAIOption(false);
+        setLastFileText(null);
+      } else {
+        setError("AI couldn't extract transactions. Please check the file format.");
+      }
+    } catch (err) {
+      console.error("AI parsing error:", err);
+      setError(err instanceof Error ? err.message : "AI parsing failed");
+    } finally {
+      setIsAIProcessing(false);
+    }
+  };
 
   const handleDrop = useCallback((e: React.DragEvent) => {
     e.preventDefault();
@@ -54,7 +158,7 @@ export function ImportTab() {
   const handleFileInput = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) handleFile(file);
-    e.target.value = ""; // Reset input
+    e.target.value = "";
   }, [handleFile]);
 
   const handleClearAll = async () => {
@@ -120,7 +224,7 @@ export function ImportTab() {
             <div className={`w-16 h-16 rounded-full flex items-center justify-center mb-4 transition-colors ${
               isDragging ? "bg-primary/20" : "bg-primary/10"
             }`}>
-              {isProcessing ? (
+              {isProcessing || isAIProcessing ? (
                 <svg className="w-8 h-8 text-primary animate-spin" fill="none" viewBox="0 0 24 24">
                   <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                   <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
@@ -133,7 +237,7 @@ export function ImportTab() {
             </div>
             
             <h3 className="text-lg font-semibold mb-2">
-              {isProcessing ? "Processing..." : "Upload Statement"}
+              {isProcessing ? "Processing..." : isAIProcessing ? "AI Processing..." : "Upload Statement"}
             </h3>
             
             <p className="text-muted-foreground text-sm mb-6 max-w-sm">
@@ -143,8 +247,44 @@ export function ImportTab() {
             </p>
 
             {error && (
-              <div className="mb-4 p-3 rounded-lg bg-destructive/10 text-destructive text-sm">
+              <div className="mb-4 p-3 rounded-lg bg-destructive/10 text-destructive text-sm max-w-md">
                 {error}
+              </div>
+            )}
+
+            {showAIOption && (
+              <div className="mb-4 p-4 rounded-lg bg-primary/10 border border-primary/20 max-w-md">
+                <div className="flex items-center gap-2 mb-2">
+                  <svg className="w-5 h-5 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                  </svg>
+                  <span className="font-semibold text-primary">AI-Powered Parsing</span>
+                </div>
+                <p className="text-sm text-muted-foreground mb-3">
+                  Use AI to extract transactions from your PDF with higher accuracy.
+                </p>
+                <Button 
+                  onClick={handleAIParsing} 
+                  disabled={isAIProcessing}
+                  className="w-full"
+                >
+                  {isAIProcessing ? (
+                    <>
+                      <svg className="w-4 h-4 mr-2 animate-spin" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                      </svg>
+                      Processing with AI...
+                    </>
+                  ) : (
+                    <>
+                      <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                      </svg>
+                      Try AI Parsing
+                    </>
+                  )}
+                </Button>
               </div>
             )}
 
@@ -154,23 +294,23 @@ export function ImportTab() {
               </div>
             )}
 
-            <label>
-              <input
-                type="file"
-                accept=".csv,.xlsx,.xls,.pdf"
-                onChange={handleFileInput}
-                className="hidden"
-                disabled={isProcessing}
-              />
-              <Button asChild disabled={isProcessing}>
-                <span>
-                  <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                  </svg>
-                  Select File
-                </span>
-              </Button>
-            </label>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept=".csv,.xlsx,.xls,.pdf"
+              onChange={handleFileInput}
+              className="hidden"
+              disabled={isProcessing || isAIProcessing}
+            />
+            <Button 
+              onClick={() => fileInputRef.current?.click()}
+              disabled={isProcessing || isAIProcessing}
+            >
+              <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+              </svg>
+              Select File
+            </Button>
             
             <p className="text-xs text-muted-foreground mt-4">
               Supported: CSV, Excel (.xlsx), PDF

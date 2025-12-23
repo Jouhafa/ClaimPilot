@@ -6,13 +6,16 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { useApp } from "@/lib/context";
+import { RulesManager } from "./RulesManager";
+import { v4 as uuidv4 } from "uuid";
 import type { Transaction, TransactionTag } from "@/lib/types";
 
 export function TransactionsTab() {
-  const { transactions, updateTransaction, isLoading } = useApp();
+  const { transactions, updateTransaction, isLoading, rules, addRule } = useApp();
   const [search, setSearch] = useState("");
   const [tagFilter, setTagFilter] = useState<TransactionTag | "all">("all");
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [showRulesManager, setShowRulesManager] = useState(false);
 
   const filteredTransactions = useMemo(() => {
     return transactions
@@ -50,6 +53,33 @@ export function TransactionsTab() {
       await handleTagChange(id, tag);
     }
     setSelectedIds(new Set());
+  };
+
+  const handleCreateRuleFromSelection = async () => {
+    if (selectedIds.size === 0) return;
+
+    // Get the first selected transaction
+    const firstId = Array.from(selectedIds)[0];
+    const tx = transactions.find((t) => t.id === firstId);
+    if (!tx) return;
+
+    // Extract a keyword from the merchant
+    const keyword = tx.merchant.split(" ")[0];
+    const promptKeyword = prompt(
+      "Create a rule for transactions containing:",
+      keyword
+    );
+
+    if (!promptKeyword) return;
+
+    const tag = tx.tag || "reimbursable";
+    await addRule({
+      id: uuidv4(),
+      contains: promptKeyword,
+      tag: tag as Exclude<TransactionTag, null>,
+    });
+
+    alert(`Rule created: "${promptKeyword}" → ${tag}`);
   };
 
   const toggleSelect = (id: string) => {
@@ -127,11 +157,19 @@ export function TransactionsTab() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight">Transactions</h1>
-        <p className="text-muted-foreground mt-2">
-          View, search, and tag all imported transactions
-        </p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">Transactions</h1>
+          <p className="text-muted-foreground mt-2">
+            View, search, and tag all imported transactions
+          </p>
+        </div>
+        <Button variant="outline" onClick={() => setShowRulesManager(true)}>
+          <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" />
+          </svg>
+          Rules ({rules.length})
+        </Button>
       </div>
 
       {/* Filters */}
@@ -183,11 +221,11 @@ export function TransactionsTab() {
       {selectedIds.size > 0 && (
         <Card className="border-primary">
           <CardContent className="pt-4 pb-4">
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between flex-wrap gap-3">
               <span className="text-sm font-medium">
                 {selectedIds.size} selected
               </span>
-              <div className="flex gap-2">
+              <div className="flex gap-2 flex-wrap">
                 <Button size="sm" variant="outline" onClick={() => handleBulkTag("reimbursable")}>
                   Tag Reimbursable
                 </Button>
@@ -196,6 +234,12 @@ export function TransactionsTab() {
                 </Button>
                 <Button size="sm" variant="outline" onClick={() => handleBulkTag("ignore")}>
                   Tag Ignore
+                </Button>
+                <Button size="sm" variant="outline" onClick={handleCreateRuleFromSelection}>
+                  <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" />
+                  </svg>
+                  Create Rule
                 </Button>
                 <Button size="sm" variant="ghost" onClick={() => setSelectedIds(new Set())}>
                   Clear
@@ -279,6 +323,9 @@ export function TransactionsTab() {
           </div>
         </CardContent>
       </Card>
+
+      {/* Rules Manager Modal */}
+      <RulesManager isOpen={showRulesManager} onClose={() => setShowRulesManager(false)} />
     </div>
   );
 }
