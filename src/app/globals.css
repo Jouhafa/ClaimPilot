@@ -48,8 +48,46 @@
   --color-cyan-foreground: var(--cyan-foreground);
 }
 
+/* Light Mode (default) */
 :root {
   --radius: 0.625rem;
+  --background: oklch(0.98 0.005 260);
+  --foreground: oklch(0.15 0.02 260);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.15 0.02 260);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.15 0.02 260);
+  --primary: oklch(0.55 0.2 195);
+  --primary-foreground: oklch(1 0 0);
+  --secondary: oklch(0.95 0.01 260);
+  --secondary-foreground: oklch(0.15 0.02 260);
+  --muted: oklch(0.95 0.01 260);
+  --muted-foreground: oklch(0.45 0.02 260);
+  --accent: oklch(0.55 0.2 195);
+  --accent-foreground: oklch(1 0 0);
+  --destructive: oklch(0.55 0.25 25);
+  --border: oklch(0.90 0.01 260);
+  --input: oklch(0.95 0.01 260);
+  --ring: oklch(0.55 0.2 195);
+  --chart-1: oklch(0.55 0.2 195);
+  --chart-2: oklch(0.50 0.18 160);
+  --chart-3: oklch(0.45 0.15 280);
+  --chart-4: oklch(0.55 0.20 50);
+  --chart-5: oklch(0.50 0.18 340);
+  --sidebar: oklch(0.97 0.005 260);
+  --sidebar-foreground: oklch(0.15 0.02 260);
+  --sidebar-primary: oklch(0.55 0.2 195);
+  --sidebar-primary-foreground: oklch(1 0 0);
+  --sidebar-accent: oklch(0.93 0.01 260);
+  --sidebar-accent-foreground: oklch(0.15 0.02 260);
+  --sidebar-border: oklch(0.90 0.01 260);
+  --sidebar-ring: oklch(0.55 0.2 195);
+  --cyan: oklch(0.55 0.2 195);
+  --cyan-foreground: oklch(1 0 0);
+}
+
+/* Dark Mode */
+.dark {
   --background: oklch(0.12 0.02 260);
   --foreground: oklch(0.98 0 0);
   --card: oklch(0.16 0.02 260);
@@ -101,6 +139,15 @@
 }
 
 @keyframes pulse-glow {
+  0%, 100% { box-shadow: 0 0 20px oklch(0.55 0.2 195 / 0.3); }
+  50% { box-shadow: 0 0 40px oklch(0.55 0.2 195 / 0.5); }
+}
+
+.dark .animate-pulse-glow {
+  animation: pulse-glow-dark 3s ease-in-out infinite;
+}
+
+@keyframes pulse-glow-dark {
   0%, 100% { box-shadow: 0 0 20px oklch(0.75 0.15 195 / 0.3); }
   50% { box-shadow: 0 0 40px oklch(0.75 0.15 195 / 0.5); }
 }
@@ -127,6 +174,13 @@
 /* Grid pattern background */
 .grid-pattern {
   background-image: 
+    linear-gradient(oklch(0.90 0.01 260 / 0.5) 1px, transparent 1px),
+    linear-gradient(90deg, oklch(0.90 0.01 260 / 0.5) 1px, transparent 1px);
+  background-size: 60px 60px;
+}
+
+.dark .grid-pattern {
+  background-image: 
     linear-gradient(oklch(0.28 0.02 260 / 0.5) 1px, transparent 1px),
     linear-gradient(90deg, oklch(0.28 0.02 260 / 0.5) 1px, transparent 1px);
   background-size: 60px 60px;
@@ -134,5 +188,9 @@
 
 /* Radial gradient overlay */
 .radial-overlay {
+  background: radial-gradient(ellipse at center, oklch(0.55 0.2 195 / 0.08) 0%, transparent 70%);
+}
+
+.dark .radial-overlay {
   background: radial-gradient(ellipse at center, oklch(0.75 0.15 195 / 0.08) 0%, transparent 70%);
 }

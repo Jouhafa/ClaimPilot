@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import OpenAI from "openai";
+import { GoogleGenerativeAI } from "@google/generative-ai";
 
 export async function POST(request: NextRequest) {
   try {
@@ -12,17 +12,16 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    if (!process.env.OPENAI_API_KEY) {
+    if (!process.env.GEMINI_API_KEY) {
       return NextResponse.json(
-        { error: "OpenAI API key not configured. Please add OPENAI_API_KEY to your environment variables." },
+        { error: "Gemini API key not configured. Please add GEMINI_API_KEY to your environment variables." },
         { status: 500 }
       );
     }
 
-    // Initialize OpenAI client lazily to avoid build errors
-    const openai = new OpenAI({
-      apiKey: process.env.OPENAI_API_KEY,
-    });
+    // Initialize Gemini client
+    const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
 
     const prompt = `Extract all financial transactions from this bank statement text. Return ONLY a valid JSON array of transactions with this exact structure:
 
@@ -42,27 +41,13 @@ Rules:
 - amount: Negative for debits/charges, positive for credits/payments. Look for "CR" suffix for credits.
 - Skip header rows, summaries, and non-transaction lines
 - Only include actual transactions with dates and amounts
+- Return ONLY the JSON array, no markdown formatting, no explanations
 
 Bank Statement Text:
-${text.substring(0, 15000)}`;
+${text.substring(0, 20000)}`;
 
-    const completion = await openai.chat.completions.create({
-      model: "gpt-4o-mini",
-      messages: [
-        {
-          role: "system",
-          content: "You are a financial data extraction assistant. Extract transactions from bank statements and return them as a JSON array. Be precise with amounts and dates. Return ONLY valid JSON, no markdown or explanations."
-        },
-        {
-          role: "user",
-          content: prompt
-        }
-      ],
-      temperature: 0.1,
-      max_tokens: 4000,
-    });
-
-    const responseText = completion.choices[0]?.message?.content || "[]";
+    const result = await model.generateContent(prompt);
+    const responseText = result.response.text();
     
     // Try to parse the JSON response
     let transactions;
@@ -75,9 +60,9 @@ ${text.substring(0, 15000)}`;
       
       transactions = JSON.parse(cleanedResponse);
     } catch (parseError) {
-      console.error("Failed to parse OpenAI response:", responseText);
+      console.error("Failed to parse Gemini response:", responseText);
       return NextResponse.json(
-        { error: "Failed to parse AI response", raw: responseText },
+        { error: "Failed to parse AI response", raw: responseText.substring(0, 500) },
         { status: 500 }
       );
     }
@@ -119,4 +104,3 @@ function extractMerchant(description: string): string {
     .trim()
     .substring(0, 40) || "Unknown";
 }
-
