@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
+import { Badge } from "@/components/ui/badge";
 import { useApp } from "@/lib/context";
 import { saveCardSafety, loadCardSafety } from "@/lib/storage";
 
@@ -14,6 +15,9 @@ export function CardSafetyTab() {
   const [statementBalance, setStatementBalance] = useState<string>("");
   const [dueDate, setDueDate] = useState<string>("");
   const [paymentsMade, setPaymentsMade] = useState<string>("");
+  const [minimumDue, setMinimumDue] = useState<string>("");
+  const [safetyBuffer, setSafetyBuffer] = useState<string>("500");
+  const [statementDate, setStatementDate] = useState<string>("");
   const [isCalculated, setIsCalculated] = useState(false);
 
   // Load saved data on mount
@@ -23,6 +27,9 @@ export function CardSafetyTab() {
         setStatementBalance(data.statementBalance.toString());
         setDueDate(data.dueDate);
         setPaymentsMade(data.paymentsMade.toString());
+        if (data.minimumDue) setMinimumDue(data.minimumDue.toString());
+        if (data.safetyBuffer) setSafetyBuffer(data.safetyBuffer.toString());
+        if (data.statementDate) setStatementDate(data.statementDate);
         setIsCalculated(true);
       }
     });
@@ -30,7 +37,7 @@ export function CardSafetyTab() {
 
   // Calculate reimbursement totals
   const reimbursementStats = useMemo(() => {
-    const reimbursables = transactions.filter((t) => t.tag === "reimbursable");
+    const reimbursables = transactions.filter((t) => t.tag === "reimbursable" && !t.parentId);
     
     const draft = reimbursables
       .filter((t) => !t.status || t.status === "draft")
@@ -44,13 +51,18 @@ export function CardSafetyTab() {
       .filter((t) => t.status === "paid")
       .reduce((sum, t) => sum + Math.abs(t.amount), 0);
 
-    return { draft, submitted, paid, total: draft + submitted };
+    // Estimate what might be paid before due date (submitted items)
+    const expectedBeforeDue = submitted;
+
+    return { draft, submitted, paid, total: draft + submitted, expectedBeforeDue };
   }, [transactions]);
 
   // Calculate amounts
   const calculations = useMemo(() => {
     const balance = parseFloat(statementBalance) || 0;
     const payments = parseFloat(paymentsMade) || 0;
+    const minDue = parseFloat(minimumDue) || 0;
+    const buffer = parseFloat(safetyBuffer) || 0;
     const remaining = balance - payments;
     const personalPortion = remaining - reimbursementStats.total;
     
@@ -59,25 +71,46 @@ export function CardSafetyTab() {
     const due = dueDate ? new Date(dueDate) : null;
     const daysUntilDue = due ? Math.ceil((due.getTime() - today.getTime()) / (1000 * 60 * 60 * 24)) : null;
 
+    // Suggested pay-now calculation
+    // Pay personal portion + buffer, or at minimum the min due
+    const suggestedPayNow = Math.max(
+      personalPortion + buffer,
+      minDue
+    );
+
+    // Alternative: Pay everything except expected reimbursements
+    const conservativePayNow = remaining - reimbursementStats.expectedBeforeDue + buffer;
+
     return {
       statementBalance: balance,
       paymentsMade: payments,
+      minimumDue: minDue,
       remaining,
       pendingReimbursements: reimbursementStats.total,
+      expectedBeforeDue: reimbursementStats.expectedBeforeDue,
       personalPortion: Math.max(0, personalPortion),
+      safetyBuffer: buffer,
+      suggestedPayNow: Math.max(0, suggestedPayNow),
+      conservativePayNow: Math.max(0, conservativePayNow),
       daysUntilDue,
       isOverdue: daysUntilDue !== null && daysUntilDue < 0,
+      isUrgent: daysUntilDue !== null && daysUntilDue <= 3 && daysUntilDue >= 0,
     };
-  }, [statementBalance, paymentsMade, dueDate, reimbursementStats]);
+  }, [statementBalance, paymentsMade, minimumDue, safetyBuffer, dueDate, reimbursementStats]);
 
   const handleCalculate = async () => {
     const balance = parseFloat(statementBalance) || 0;
     const payments = parseFloat(paymentsMade) || 0;
+    const minDue = parseFloat(minimumDue) || 0;
+    const buffer = parseFloat(safetyBuffer) || 0;
     
     await saveCardSafety({
       statementBalance: balance,
       dueDate,
       paymentsMade: payments,
+      minimumDue: minDue,
+      safetyBuffer: buffer,
+      statementDate,
     });
     
     setIsCalculated(true);
@@ -102,12 +135,33 @@ export function CardSafetyTab() {
         {/* Input Card */}
         <Card>
           <CardHeader>
-            <CardTitle className="text-lg">Statement Details</CardTitle>
+            <CardTitle className="text-lg">Statement Snapshot</CardTitle>
             <CardDescription>
               Enter the values from your latest credit card statement
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="statementDate">Statement Date</Label>
+                <Input
+                  id="statementDate"
+                  type="date"
+                  value={statementDate}
+                  onChange={(e) => setStatementDate(e.target.value)}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="dueDate">Due Date</Label>
+                <Input
+                  id="dueDate"
+                  type="date"
+                  value={dueDate}
+                  onChange={(e) => setDueDate(e.target.value)}
+                />
+              </div>
+            </div>
+
             <div className="space-y-2">
               <Label htmlFor="statementBalance">Statement Balance (AED)</Label>
               <Input
@@ -118,53 +172,67 @@ export function CardSafetyTab() {
                 value={statementBalance}
                 onChange={(e) => setStatementBalance(e.target.value)}
               />
-              <p className="text-xs text-muted-foreground">
-                Total amount shown on your statement
-              </p>
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="dueDate">Payment Due Date</Label>
-              <Input
-                id="dueDate"
-                type="date"
-                value={dueDate}
-                onChange={(e) => setDueDate(e.target.value)}
-              />
-              <p className="text-xs text-muted-foreground">
-                Date by which you must pay to avoid interest
-              </p>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="minimumDue">Minimum Due (AED)</Label>
+                <Input
+                  id="minimumDue"
+                  type="number"
+                  placeholder="e.g., 250.00"
+                  className="font-mono"
+                  value={minimumDue}
+                  onChange={(e) => setMinimumDue(e.target.value)}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="paymentsMade">Payments Made (AED)</Label>
+                <Input
+                  id="paymentsMade"
+                  type="number"
+                  placeholder="e.g., 2000.00"
+                  className="font-mono"
+                  value={paymentsMade}
+                  onChange={(e) => setPaymentsMade(e.target.value)}
+                />
+              </div>
             </div>
 
             <Separator />
 
             <div className="space-y-2">
-              <Label htmlFor="paymentsMade">Payments Made Since Statement (AED)</Label>
-              <Input
-                id="paymentsMade"
-                type="number"
-                placeholder="e.g., 2000.00"
-                className="font-mono"
-                value={paymentsMade}
-                onChange={(e) => setPaymentsMade(e.target.value)}
-              />
-              <p className="text-xs text-muted-foreground">
-                Total payments you&apos;ve already made this cycle
-              </p>
+              <Label>Pending Reimbursements (Auto-calculated)</Label>
+              <div className="p-3 rounded-lg bg-muted font-mono text-lg flex items-center justify-between">
+                <span>{reimbursementStats.total.toFixed(2)} AED</span>
+                <div className="flex gap-2">
+                  <Badge variant="outline" className="text-yellow-500">
+                    Draft: {reimbursementStats.draft.toFixed(0)}
+                  </Badge>
+                  <Badge variant="outline" className="text-blue-500">
+                    Submitted: {reimbursementStats.submitted.toFixed(0)}
+                  </Badge>
+                </div>
+              </div>
             </div>
 
             <div className="space-y-2">
-              <Label>Pending Reimbursements (AED)</Label>
-              <div className="p-3 rounded-lg bg-muted font-mono text-lg">
-                {reimbursementStats.total.toFixed(2)}
-              </div>
+              <Label htmlFor="safetyBuffer">Safety Buffer (AED)</Label>
+              <Input
+                id="safetyBuffer"
+                type="number"
+                placeholder="e.g., 500"
+                className="font-mono"
+                value={safetyBuffer}
+                onChange={(e) => setSafetyBuffer(e.target.value)}
+              />
               <p className="text-xs text-muted-foreground">
-                Auto-calculated from draft + submitted reimbursements
+                Extra amount to add for peace of mind
               </p>
             </div>
 
             <Button className="w-full" onClick={handleCalculate}>
-              Calculate
+              Calculate Suggested Payment
             </Button>
           </CardContent>
         </Card>
@@ -173,7 +241,14 @@ export function CardSafetyTab() {
         <div className="space-y-6">
           {isCalculated && calculations.remaining > 0 ? (
             <>
-              <Card className={`border-2 ${calculations.isOverdue ? "border-destructive bg-destructive/5" : "border-primary bg-primary/5"}`}>
+              {/* Main Suggested Payment */}
+              <Card className={`border-2 ${
+                calculations.isOverdue 
+                  ? "border-destructive bg-destructive/5" 
+                  : calculations.isUrgent 
+                  ? "border-yellow-500 bg-yellow-500/5"
+                  : "border-primary bg-primary/5"
+              }`}>
                 <CardHeader>
                   <CardTitle className="text-lg flex items-center gap-2">
                     {calculations.isOverdue ? (
@@ -185,114 +260,132 @@ export function CardSafetyTab() {
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
                       </svg>
                     )}
-                    {calculations.isOverdue ? "Payment Overdue!" : "Amount to Pay"}
+                    {calculations.isOverdue ? "Payment Overdue!" : "Suggested Pay Now"}
                   </CardTitle>
                   <CardDescription>
                     {calculations.isOverdue 
-                      ? "Your payment is past due - pay immediately to minimize charges"
+                      ? "Pay immediately to minimize charges"
                       : `Pay by ${formatDate(dueDate)} to avoid interest`}
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
                   <div className="text-center py-4">
-                    <p className={`text-5xl font-bold ${calculations.isOverdue ? "text-destructive" : "text-primary"}`}>
-                      {calculations.remaining.toFixed(2)}
+                    <p className={`text-5xl font-bold ${
+                      calculations.isOverdue 
+                        ? "text-destructive" 
+                        : calculations.isUrgent
+                        ? "text-yellow-500"
+                        : "text-primary"
+                    }`}>
+                      {calculations.suggestedPayNow.toFixed(2)}
                     </p>
-                    <p className="text-sm text-muted-foreground mt-2">AED</p>
+                    <p className="text-sm text-muted-foreground mt-2">AED (includes {calculations.safetyBuffer.toFixed(0)} buffer)</p>
                     {calculations.daysUntilDue !== null && !calculations.isOverdue && (
                       <p className="text-sm mt-2">
-                        <span className={calculations.daysUntilDue <= 3 ? "text-yellow-500 font-semibold" : "text-muted-foreground"}>
+                        <span className={calculations.isUrgent ? "text-yellow-500 font-semibold" : "text-muted-foreground"}>
                           {calculations.daysUntilDue} days remaining
                         </span>
                       </p>
                     )}
                   </div>
-                  <Separator className="my-4" />
-                  <div className="space-y-2 text-sm">
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Statement balance</span>
-                      <span className="font-mono">{calculations.statementBalance.toFixed(2)} AED</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Payments made</span>
-                      <span className="font-mono text-green-500">-{calculations.paymentsMade.toFixed(2)} AED</span>
-                    </div>
-                    <div className="flex justify-between font-semibold pt-2 border-t">
-                      <span>Remaining to pay</span>
-                      <span className="font-mono">{calculations.remaining.toFixed(2)} AED</span>
-                    </div>
-                  </div>
                 </CardContent>
               </Card>
 
+              {/* Payment Options */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-lg">Payment Options</CardTitle>
+                  <CardDescription>Choose based on your cash flow</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  <div className="p-4 rounded-lg border bg-green-500/5 border-green-500/20">
+                    <div className="flex justify-between items-center">
+                      <div>
+                        <p className="font-medium text-green-500">Conservative</p>
+                        <p className="text-xs text-muted-foreground">
+                          Full balance minus expected reimbursements
+                        </p>
+                      </div>
+                      <p className="text-xl font-bold font-mono">{calculations.conservativePayNow.toFixed(2)}</p>
+                    </div>
+                  </div>
+                  <div className="p-4 rounded-lg border bg-primary/5 border-primary/20">
+                    <div className="flex justify-between items-center">
+                      <div>
+                        <p className="font-medium text-primary">Recommended</p>
+                        <p className="text-xs text-muted-foreground">
+                          Personal portion + safety buffer
+                        </p>
+                      </div>
+                      <p className="text-xl font-bold font-mono">{calculations.suggestedPayNow.toFixed(2)}</p>
+                    </div>
+                  </div>
+                  <div className="p-4 rounded-lg border">
+                    <div className="flex justify-between items-center">
+                      <div>
+                        <p className="font-medium">Full Statement</p>
+                        <p className="text-xs text-muted-foreground">
+                          Clear everything (you&apos;ll be reimbursed later)
+                        </p>
+                      </div>
+                      <p className="text-xl font-bold font-mono">{calculations.remaining.toFixed(2)}</p>
+                    </div>
+                  </div>
+                  {calculations.minimumDue > 0 && (
+                    <div className="p-4 rounded-lg border bg-destructive/5 border-destructive/20">
+                      <div className="flex justify-between items-center">
+                        <div>
+                          <p className="font-medium text-destructive">Minimum (avoid late fee)</p>
+                          <p className="text-xs text-muted-foreground">
+                            Warning: You&apos;ll pay interest on unpaid balance
+                          </p>
+                        </div>
+                        <p className="text-xl font-bold font-mono">{calculations.minimumDue.toFixed(2)}</p>
+                      </div>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+
+              {/* Breakdown */}
               <Card>
                 <CardHeader>
                   <CardTitle className="text-lg">Breakdown</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="space-y-3 text-sm">
-                    <div className="flex justify-between p-3 rounded-lg bg-muted/50">
-                      <span>Pending reimbursements (draft + submitted)</span>
-                      <span className="font-mono font-semibold text-blue-500">
-                        {calculations.pendingReimbursements.toFixed(2)} AED
-                      </span>
+                  <div className="space-y-2 text-sm">
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Statement balance</span>
+                      <span className="font-mono">{calculations.statementBalance.toFixed(2)}</span>
                     </div>
-                    <div className="flex justify-between p-3 rounded-lg bg-muted/50">
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Payments made</span>
+                      <span className="font-mono text-green-500">-{calculations.paymentsMade.toFixed(2)}</span>
+                    </div>
+                    <Separator className="my-2" />
+                    <div className="flex justify-between font-medium">
+                      <span>Remaining</span>
+                      <span className="font-mono">{calculations.remaining.toFixed(2)}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">− Pending reimbursements</span>
+                      <span className="font-mono text-blue-500">-{calculations.pendingReimbursements.toFixed(2)}</span>
+                    </div>
+                    <Separator className="my-2" />
+                    <div className="flex justify-between">
                       <span>Your personal portion</span>
-                      <span className="font-mono font-semibold">
-                        {calculations.personalPortion.toFixed(2)} AED
-                      </span>
+                      <span className="font-mono">{calculations.personalPortion.toFixed(2)}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">+ Safety buffer</span>
+                      <span className="font-mono">+{calculations.safetyBuffer.toFixed(2)}</span>
+                    </div>
+                    <Separator className="my-2" />
+                    <div className="flex justify-between font-bold text-primary">
+                      <span>Suggested pay now</span>
+                      <span className="font-mono">{calculations.suggestedPayNow.toFixed(2)} AED</span>
                     </div>
                   </div>
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-lg">Action Checklist</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <ul className="space-y-3">
-                    <li className="flex items-start gap-3">
-                      <div className={`w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5 ${
-                        calculations.isOverdue ? "bg-destructive/10" : "bg-primary/10"
-                      }`}>
-                        <span className={`text-xs font-bold ${calculations.isOverdue ? "text-destructive" : "text-primary"}`}>1</span>
-                      </div>
-                      <div>
-                        <p className="font-medium">
-                          Pay {calculations.remaining.toFixed(2)} AED {calculations.isOverdue ? "immediately" : `by ${formatDate(dueDate)}`}
-                        </p>
-                        <p className="text-sm text-muted-foreground">To avoid interest charges</p>
-                      </div>
-                    </li>
-                    {reimbursementStats.draft > 0 && (
-                      <li className="flex items-start gap-3">
-                        <div className="w-6 h-6 rounded-full bg-yellow-500/10 flex items-center justify-center flex-shrink-0 mt-0.5">
-                          <span className="text-xs font-bold text-yellow-500">2</span>
-                        </div>
-                        <div>
-                          <p className="font-medium">Submit pending reimbursements</p>
-                          <p className="text-sm text-muted-foreground">
-                            {reimbursementStats.draft.toFixed(2)} AED in draft status
-                          </p>
-                        </div>
-                      </li>
-                    )}
-                    {reimbursementStats.submitted > 0 && (
-                      <li className="flex items-start gap-3">
-                        <div className="w-6 h-6 rounded-full bg-blue-500/10 flex items-center justify-center flex-shrink-0 mt-0.5">
-                          <span className="text-xs font-bold text-blue-500">{reimbursementStats.draft > 0 ? "3" : "2"}</span>
-                        </div>
-                        <div>
-                          <p className="font-medium">Follow up on submitted claims</p>
-                          <p className="text-sm text-muted-foreground">
-                            {reimbursementStats.submitted.toFixed(2)} AED awaiting payment
-                          </p>
-                        </div>
-                      </li>
-                    )}
-                  </ul>
                 </CardContent>
               </Card>
             </>

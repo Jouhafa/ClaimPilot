@@ -11,8 +11,9 @@ import { ReimbursementsTab } from "./ReimbursementsTab";
 import { CardSafetyTab } from "./CardSafetyTab";
 import { ExportTab } from "./ExportTab";
 import { OnboardingWizard } from "./OnboardingWizard";
+import { AnalyticsDashboard } from "./AnalyticsDashboard";
 
-type TabId = "import" | "transactions" | "reimbursements" | "card-safety" | "export";
+type TabId = "import" | "transactions" | "reimbursements" | "analytics" | "card-safety" | "export";
 
 interface NavItem {
   id: TabId;
@@ -53,6 +54,16 @@ const navItems: NavItem[] = [
     ),
   },
   {
+    id: "analytics",
+    label: "Analytics",
+    description: "Spending insights & trends",
+    icon: (
+      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+      </svg>
+    ),
+  },
+  {
     id: "card-safety",
     label: "Card Safety",
     description: "Calculate payment to avoid interest",
@@ -85,6 +96,18 @@ function AppContent() {
         return <TransactionsTab />;
       case "reimbursements":
         return <ReimbursementsTab />;
+      case "analytics":
+        return (
+          <div className="space-y-6">
+            <div>
+              <h1 className="text-3xl font-bold tracking-tight">Analytics</h1>
+              <p className="text-muted-foreground mt-2">
+                Insights into your reimbursable spending
+              </p>
+            </div>
+            <AnalyticsDashboard />
+          </div>
+        );
       case "card-safety":
         return <CardSafetyTab />;
       case "export":

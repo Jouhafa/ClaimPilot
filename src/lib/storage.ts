@@ -1,11 +1,13 @@
 import { get, set, del } from "idb-keyval";
-import type { Transaction, Rule, CardSafetyData, ClaimBatch } from "./types";
+import type { Transaction, Rule, CardSafetyData, ClaimBatch, ImportProfile, MerchantAlias } from "./types";
 
 const TRANSACTIONS_KEY = "reimburse_transactions";
 const RULES_KEY = "reimburse_rules";
 const CARD_SAFETY_KEY = "reimburse_card_safety";
 const LICENSE_KEY = "reimburse_license";
 const BATCHES_KEY = "reimburse_batches";
+const PROFILES_KEY = "reimburse_import_profiles";
+const ALIASES_KEY = "reimburse_merchant_aliases";
 
 // Transactions
 export async function saveTransactions(transactions: Transaction[]): Promise<void> {
@@ -47,7 +49,8 @@ export async function updateTransaction(
 
 export async function deleteTransaction(id: string): Promise<Transaction[]> {
   const transactions = await loadTransactions();
-  const filtered = transactions.filter((tx) => tx.id !== id);
+  // Also delete any children if this is a parent
+  const filtered = transactions.filter((tx) => tx.id !== id && tx.parentId !== id);
   await saveTransactions(filtered);
   return filtered;
 }
@@ -138,4 +141,78 @@ export async function deleteBatch(id: string): Promise<ClaimBatch[]> {
   const filtered = batches.filter((b) => b.id !== id);
   await saveBatches(filtered);
   return filtered;
+}
+
+// Import Profiles
+export async function saveProfiles(profiles: ImportProfile[]): Promise<void> {
+  await set(PROFILES_KEY, profiles);
+}
+
+export async function loadProfiles(): Promise<ImportProfile[]> {
+  const data = await get<ImportProfile[]>(PROFILES_KEY);
+  return data || [];
+}
+
+export async function addProfile(profile: ImportProfile): Promise<ImportProfile[]> {
+  const profiles = await loadProfiles();
+  profiles.push(profile);
+  await saveProfiles(profiles);
+  return profiles;
+}
+
+export async function deleteProfile(id: string): Promise<ImportProfile[]> {
+  const profiles = await loadProfiles();
+  const filtered = profiles.filter((p) => p.id !== id);
+  await saveProfiles(filtered);
+  return filtered;
+}
+
+// Merchant Aliases
+export async function saveAliases(aliases: MerchantAlias[]): Promise<void> {
+  await set(ALIASES_KEY, aliases);
+}
+
+export async function loadAliases(): Promise<MerchantAlias[]> {
+  const data = await get<MerchantAlias[]>(ALIASES_KEY);
+  return data || getDefaultAliases();
+}
+
+export async function addAlias(alias: MerchantAlias): Promise<MerchantAlias[]> {
+  const aliases = await loadAliases();
+  aliases.push(alias);
+  await saveAliases(aliases);
+  return aliases;
+}
+
+export async function updateAlias(
+  id: string,
+  updates: Partial<MerchantAlias>
+): Promise<MerchantAlias[]> {
+  const aliases = await loadAliases();
+  const updated = aliases.map((a) =>
+    a.id === id ? { ...a, ...updates } : a
+  );
+  await saveAliases(updated);
+  return updated;
+}
+
+export async function deleteAlias(id: string): Promise<MerchantAlias[]> {
+  const aliases = await loadAliases();
+  const filtered = aliases.filter((a) => a.id !== id);
+  await saveAliases(filtered);
+  return filtered;
+}
+
+// Default merchant aliases
+function getDefaultAliases(): MerchantAlias[] {
+  return [
+    { id: "careem", variants: ["CAREEM", "CAREEM HALA", "CAREEM UAE"], normalizedName: "Careem" },
+    { id: "uber", variants: ["UBER", "UBER BV", "UBER TRIP", "UBER EATS"], normalizedName: "Uber" },
+    { id: "amazon", variants: ["AMAZON", "AMAZON.AE", "AMZN", "AMAZON AWS"], normalizedName: "Amazon" },
+    { id: "netflix", variants: ["NETFLIX", "NETFLIX.COM"], normalizedName: "Netflix" },
+    { id: "spotify", variants: ["SPOTIFY", "SPOTIFY AB"], normalizedName: "Spotify" },
+    { id: "starbucks", variants: ["STARBUCKS", "STARBUCKS COFFEE"], normalizedName: "Starbucks" },
+    { id: "marriott", variants: ["MARRIOTT", "MARRIOTT HOTEL", "MARRIOTT BONVOY"], normalizedName: "Marriott" },
+    { id: "hilton", variants: ["HILTON", "HILTON HOTEL", "HILTON HONORS"], normalizedName: "Hilton" },
+  ];
 }

@@ -6,8 +6,9 @@ import { Button } from "@/components/ui/button";
 import { useApp } from "@/lib/context";
 import { parseFile } from "@/lib/parsers";
 import { generateSampleTransactions } from "@/lib/sampleData";
+import { ImportProfileManager } from "./ImportProfileManager";
 import { v4 as uuidv4 } from "uuid";
-import type { Transaction } from "@/lib/types";
+import type { Transaction, ImportProfile } from "@/lib/types";
 
 export function ImportTab() {
   const { addTransactions, rules, transactions, deleteAllTransactions } = useApp();
@@ -19,6 +20,8 @@ export function ImportTab() {
   const [successCount, setSuccessCount] = useState<number | null>(null);
   const [lastFileText, setLastFileText] = useState<string | null>(null);
   const [showAIOption, setShowAIOption] = useState(false);
+  const [showProfiles, setShowProfiles] = useState(false);
+  const [selectedProfile, setSelectedProfile] = useState<ImportProfile | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleLoadDemo = async () => {
@@ -187,19 +190,49 @@ export function ImportTab() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between flex-wrap gap-4">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Import Statement</h1>
           <p className="text-muted-foreground mt-2">
             Upload your credit card statement to get started
           </p>
         </div>
-        {transactions.length > 0 && (
-          <Button variant="outline" onClick={handleClearAll} className="text-destructive">
-            Clear All Data
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={() => setShowProfiles(true)}>
+            <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+            </svg>
+            Import Profiles
           </Button>
-        )}
+          {transactions.length > 0 && (
+            <Button variant="outline" onClick={handleClearAll} className="text-destructive">
+              Clear All Data
+            </Button>
+          )}
+        </div>
       </div>
+
+      {/* Selected Profile Info */}
+      {selectedProfile && (
+        <Card className="border-primary/30 bg-primary/5">
+          <CardContent className="pt-4 pb-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <svg className="w-5 h-5 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <div>
+                  <p className="font-medium">Using: {selectedProfile.name}</p>
+                  <p className="text-xs text-muted-foreground">{selectedProfile.bankName}</p>
+                </div>
+              </div>
+              <Button variant="ghost" size="sm" onClick={() => setSelectedProfile(null)}>
+                Clear
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Stats */}
       {transactions.length > 0 && (
@@ -382,6 +415,13 @@ export function ImportTab() {
           </ol>
         </CardContent>
       </Card>
+
+      {/* Import Profile Manager Modal */}
+      <ImportProfileManager
+        isOpen={showProfiles}
+        onClose={() => setShowProfiles(false)}
+        onSelectProfile={(profile) => setSelectedProfile(profile)}
+      />
     </div>
   );
 }

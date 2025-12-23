@@ -10,6 +10,7 @@ import { useApp } from "@/lib/context";
 import { exportToCSV, exportToExcel, downloadCSV, downloadExcel, calculateSummary } from "@/lib/export";
 import { EXPORT_PRESETS, exportToPresetCSV, downloadPresetCSV, type ExportPreset } from "@/lib/exportPresets";
 import { saveLicense, loadLicense, clearLicense } from "@/lib/storage";
+import { PDFSummary } from "./PDFSummary";
 
 export function ExportTab() {
   const { transactions } = useApp();
@@ -19,6 +20,7 @@ export function ExportTab() {
   const [error, setError] = useState<string | null>(null);
   const [purchaseInfo, setPurchaseInfo] = useState<{ email?: string } | null>(null);
   const [selectedPreset, setSelectedPreset] = useState<ExportPreset>("simple");
+  const [showPDFPreview, setShowPDFPreview] = useState(false);
 
   const summary = useMemo(() => calculateSummary(transactions), [transactions]);
   const reimbursables = useMemo(
@@ -276,6 +278,44 @@ export function ExportTab() {
         </CardContent>
       </Card>
 
+      {/* PDF Summary Export */}
+      <Card>
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-lg">PDF Summary Report</CardTitle>
+            <Badge className="bg-green-500/10 text-green-500">Free</Badge>
+          </div>
+          <CardDescription>
+            One-page summary for finance teams or personal records
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="space-y-2">
+            <p className="text-sm font-medium">Includes:</p>
+            <ul className="text-sm text-muted-foreground space-y-1">
+              {["Summary totals & status breakdown", "Full transaction list", "Print-ready format"].map((item, i) => (
+                <li key={i} className="flex items-center gap-2">
+                  <svg className="w-4 h-4 text-primary" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                  </svg>
+                  {item}
+                </li>
+              ))}
+            </ul>
+          </div>
+          <Button
+            className="w-full"
+            disabled={reimbursables.length === 0}
+            onClick={() => setShowPDFPreview(true)}
+          >
+            <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
+            </svg>
+            Generate PDF Report
+          </Button>
+        </CardContent>
+      </Card>
+
       {/* Standard Export Options */}
       <div className="grid md:grid-cols-2 gap-6">
         <Card className={!isUnlocked ? "opacity-60" : ""}>
@@ -421,6 +461,14 @@ Total: ${summary.grandTotal.toFixed(2)} AED (${summary.totalCount} items)`}
             </p>
           </CardContent>
         </Card>
+      )}
+
+      {/* PDF Preview Modal */}
+      {showPDFPreview && (
+        <PDFSummary
+          transactions={transactions}
+          onClose={() => setShowPDFPreview(false)}
+        />
       )}
     </div>
   );

@@ -6,4 +6,10 @@ export { CardSafetyTab } from "./CardSafetyTab";
 export { ExportTab } from "./ExportTab";
 export { RulesManager } from "./RulesManager";
 export { OnboardingWizard } from "./OnboardingWizard";
+export { SplitTransactionModal } from "./SplitTransactionModal";
+export { DuplicateDetector } from "./DuplicateDetector";
+export { MerchantManager } from "./MerchantManager";
+export { AnalyticsDashboard } from "./AnalyticsDashboard";
+export { PDFSummary } from "./PDFSummary";
+export { ImportProfileManager } from "./ImportProfileManager";
 

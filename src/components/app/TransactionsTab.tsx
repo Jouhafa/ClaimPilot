@@ -7,24 +7,35 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { useApp } from "@/lib/context";
 import { RulesManager } from "./RulesManager";
+import { SplitTransactionModal } from "./SplitTransactionModal";
+import { DuplicateDetector } from "./DuplicateDetector";
+import { MerchantManager } from "./MerchantManager";
 import { v4 as uuidv4 } from "uuid";
+import { findDuplicates, calculateCurrencyTotals } from "@/lib/types";
 import type { Transaction, TransactionTag } from "@/lib/types";
 
 export function TransactionsTab() {
-  const { transactions, updateTransaction, isLoading, rules, addRule } = useApp();
+  const { transactions, updateTransaction, isLoading, rules, addRule, splitTransaction } = useApp();
   const [search, setSearch] = useState("");
   const [tagFilter, setTagFilter] = useState<TransactionTag | "all">("all");
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [showRulesManager, setShowRulesManager] = useState(false);
+  const [showDuplicates, setShowDuplicates] = useState(false);
+  const [showMerchants, setShowMerchants] = useState(false);
+  const [splitModalTx, setSplitModalTx] = useState<Transaction | null>(null);
   const [focusedIndex, setFocusedIndex] = useState<number>(-1);
   const [editingMerchant, setEditingMerchant] = useState<string | null>(null);
   const [editMerchantValue, setEditMerchantValue] = useState("");
   const tableRef = useRef<HTMLDivElement>(null);
   const searchRef = useRef<HTMLInputElement>(null);
 
+  // Filter out split children from main view (they'll show under parent)
   const filteredTransactions = useMemo(() => {
     return transactions
       .filter((tx) => {
+        // Hide split children in main list
+        if (tx.parentId) return false;
+        
         // Search filter
         if (search) {
           const searchLower = search.toLowerCase();
@@ -42,6 +53,21 @@ export function TransactionsTab() {
       })
       .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
   }, [transactions, search, tagFilter]);
+
+  // Get split children for a transaction
+  const getSplitChildren = (parentId: string) => {
+    return transactions.filter((tx) => tx.parentId === parentId);
+  };
+
+  // Duplicate count
+  const duplicateCount = useMemo(() => {
+    return findDuplicates(transactions).size;
+  }, [transactions]);
+
+  // Multi-currency totals
+  const currencyTotals = useMemo(() => {
+    return calculateCurrencyTotals(transactions);
+  }, [transactions]);
 
   const handleTagChange = async (id: string, tag: TransactionTag) => {
     const updates: Partial<Transaction> = { tag };
@@ -87,6 +113,12 @@ export function TransactionsTab() {
     alert(`Rule created: "${promptKeyword}" → ${tag}`);
   };
 
+  const handleSplitTransaction = async (splits: { percentage: number; tag: TransactionTag }[]) => {
+    if (!splitModalTx) return;
+    await splitTransaction(splitModalTx.id, splits);
+    setSplitModalTx(null);
+  };
+
   const toggleSelect = (id: string) => {
     const newSet = new Set(selectedIds);
     if (newSet.has(id)) {
@@ -107,7 +139,6 @@ export function TransactionsTab() {
 
   // Keyboard shortcuts
   const handleKeyDown = useCallback((e: KeyboardEvent) => {
-    // Ignore if in input field (except for navigation)
     const isInInput = document.activeElement?.tagName === "INPUT" || 
                       document.activeElement?.tagName === "SELECT" ||
                       document.activeElement?.tagName === "TEXTAREA";
@@ -116,24 +147,17 @@ export function TransactionsTab() {
       return;
     }
 
-    // Navigation
     if (e.key === "ArrowDown" || e.key === "j") {
       e.preventDefault();
       setFocusedIndex((prev) => Math.min(prev + 1, filteredTransactions.length - 1));
     } else if (e.key === "ArrowUp" || e.key === "k") {
       e.preventDefault();
       setFocusedIndex((prev) => Math.max(prev - 1, 0));
-    }
-    
-    // Selection
-    else if (e.key === " " && focusedIndex >= 0) {
+    } else if (e.key === " " && focusedIndex >= 0) {
       e.preventDefault();
       const tx = filteredTransactions[focusedIndex];
       if (tx) toggleSelect(tx.id);
-    }
-    
-    // Tagging shortcuts (work on focused or all selected)
-    else if (e.key === "r" || e.key === "R") {
+    } else if (e.key === "r" || e.key === "R") {
       e.preventDefault();
       if (selectedIds.size > 0) {
         handleBulkTag("reimbursable");
@@ -157,16 +181,10 @@ export function TransactionsTab() {
         const tx = filteredTransactions[focusedIndex];
         if (tx) handleTagChange(tx.id, "ignore");
       }
-    }
-    
-    // Search focus
-    else if (e.key === "/" && !isInInput) {
+    } else if (e.key === "/" && !isInInput) {
       e.preventDefault();
       searchRef.current?.focus();
-    }
-    
-    // Escape to clear
-    else if (e.key === "Escape") {
+    } else if (e.key === "Escape") {
       setSelectedIds(new Set());
       setFocusedIndex(-1);
       setEditingMerchant(null);
@@ -179,7 +197,6 @@ export function TransactionsTab() {
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [handleKeyDown]);
 
-  // Scroll focused row into view
   useEffect(() => {
     if (focusedIndex >= 0 && tableRef.current) {
       const row = tableRef.current.querySelector(`[data-row-index="${focusedIndex}"]`);
@@ -187,7 +204,6 @@ export function TransactionsTab() {
     }
   }, [focusedIndex]);
 
-  // Inline merchant editing
   const startEditingMerchant = (tx: Transaction) => {
     setEditingMerchant(tx.id);
     setEditMerchantValue(tx.merchant);
@@ -258,20 +274,52 @@ export function TransactionsTab() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between flex-wrap gap-4">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Transactions</h1>
           <p className="text-muted-foreground mt-2">
             View, search, and tag all imported transactions
           </p>
         </div>
-        <Button variant="outline" onClick={() => setShowRulesManager(true)}>
-          <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" />
-          </svg>
-          Rules ({rules.length})
-        </Button>
+        <div className="flex gap-2 flex-wrap">
+          <Button variant="outline" onClick={() => setShowMerchants(true)}>
+            <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+            </svg>
+            Merchants
+          </Button>
+          {duplicateCount > 0 && (
+            <Button variant="outline" onClick={() => setShowDuplicates(true)} className="text-yellow-500 border-yellow-500/30">
+              <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+              </svg>
+              {duplicateCount} Duplicates
+            </Button>
+          )}
+          <Button variant="outline" onClick={() => setShowRulesManager(true)}>
+            <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" />
+            </svg>
+            Rules ({rules.length})
+          </Button>
+        </div>
       </div>
+
+      {/* Multi-Currency Totals */}
+      {currencyTotals.size > 1 && (
+        <Card className="bg-primary/5 border-primary/20">
+          <CardContent className="pt-4 pb-4">
+            <div className="flex items-center gap-4 flex-wrap">
+              <span className="text-sm font-medium">Reimbursable Totals:</span>
+              {Array.from(currencyTotals.entries()).map(([currency, total]) => (
+                <Badge key={currency} variant="outline" className="text-sm">
+                  {total.toFixed(2)} {currency}
+                </Badge>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Keyboard shortcuts hint */}
       <div className="flex flex-wrap gap-2 text-xs text-muted-foreground">
@@ -313,28 +361,28 @@ export function TransactionsTab() {
                 size="sm"
                 onClick={() => setTagFilter("all")}
               >
-                All ({transactions.length})
+                All ({transactions.filter((t) => !t.parentId).length})
               </Button>
               <Button
                 variant={tagFilter === null ? "default" : "outline"}
                 size="sm"
                 onClick={() => setTagFilter(null)}
               >
-                Untagged ({transactions.filter((t) => !t.tag).length})
+                Untagged ({transactions.filter((t) => !t.tag && !t.parentId).length})
               </Button>
               <Button
                 variant={tagFilter === "reimbursable" ? "default" : "outline"}
                 size="sm"
                 onClick={() => setTagFilter("reimbursable")}
               >
-                Reimbursable ({transactions.filter((t) => t.tag === "reimbursable").length})
+                Reimbursable ({transactions.filter((t) => t.tag === "reimbursable" && !t.parentId).length})
               </Button>
               <Button
                 variant={tagFilter === "personal" ? "default" : "outline"}
                 size="sm"
                 onClick={() => setTagFilter("personal")}
               >
-                Personal ({transactions.filter((t) => t.tag === "personal").length})
+                Personal ({transactions.filter((t) => t.tag === "personal" && !t.parentId).length})
               </Button>
             </div>
           </div>
@@ -381,7 +429,7 @@ export function TransactionsTab() {
             <div>
               <CardTitle className="text-lg">All Transactions</CardTitle>
               <CardDescription>
-                {filteredTransactions.length} of {transactions.length} transactions
+                {filteredTransactions.length} of {transactions.filter((t) => !t.parentId).length} transactions
               </CardDescription>
             </div>
           </div>
@@ -407,82 +455,161 @@ export function TransactionsTab() {
                 </tr>
               </thead>
               <tbody>
-                {filteredTransactions.map((tx, index) => (
-                  <tr 
-                    key={tx.id} 
-                    data-row-index={index}
-                    className={`border-b last:border-0 transition-colors cursor-pointer ${
-                      focusedIndex === index 
-                        ? "bg-primary/10 ring-1 ring-primary/30" 
-                        : selectedIds.has(tx.id)
-                        ? "bg-muted/50"
-                        : "hover:bg-muted/30"
-                    }`}
-                    onClick={() => setFocusedIndex(index)}
-                  >
-                    <td className="px-4 py-3">
-                      <input
-                        type="checkbox"
-                        checked={selectedIds.has(tx.id)}
-                        onChange={() => toggleSelect(tx.id)}
-                        className="rounded"
-                      />
-                    </td>
-                    <td className="px-4 py-3 text-sm text-muted-foreground">{tx.date}</td>
-                    <td className="px-4 py-3">
-                      {editingMerchant === tx.id ? (
-                        <Input
-                          value={editMerchantValue}
-                          onChange={(e) => setEditMerchantValue(e.target.value)}
-                          onBlur={saveEditedMerchant}
-                          onKeyDown={(e) => {
-                            if (e.key === "Enter") saveEditedMerchant();
-                            if (e.key === "Escape") setEditingMerchant(null);
-                          }}
-                          autoFocus
-                          className="h-7 text-sm"
-                        />
-                      ) : (
-                        <div 
-                          className="cursor-pointer group"
-                          onDoubleClick={() => startEditingMerchant(tx)}
-                          title="Double-click to edit"
-                        >
-                          <div className="text-sm font-medium group-hover:text-primary transition-colors">
-                            {tx.merchant}
-                          </div>
-                          <div className="text-xs text-muted-foreground truncate max-w-xs" title={tx.description}>
-                            {tx.description.substring(0, 50)}{tx.description.length > 50 ? "..." : ""}
-                          </div>
-                        </div>
-                      )}
-                    </td>
-                    <td className={`px-4 py-3 text-sm text-right font-mono ${tx.amount >= 0 ? "text-green-500" : "text-foreground"}`}>
-                      {formatAmount(tx.amount)} {tx.currency}
-                    </td>
-                    <td className="px-4 py-3 text-center">{getTagBadge(tx.tag)}</td>
-                    <td className="px-4 py-3 text-right">
-                      <select
-                        value={tx.tag || ""}
-                        onChange={(e) => handleTagChange(tx.id, (e.target.value || null) as TransactionTag)}
-                        className="text-sm bg-transparent border rounded px-2 py-1"
+                {filteredTransactions.map((tx, index) => {
+                  const splitChildren = getSplitChildren(tx.id);
+                  const hasSplits = splitChildren.length > 0;
+                  
+                  return (
+                    <>
+                      <tr 
+                        key={tx.id} 
+                        data-row-index={index}
+                        className={`border-b last:border-0 transition-colors cursor-pointer ${
+                          focusedIndex === index 
+                            ? "bg-primary/10 ring-1 ring-primary/30" 
+                            : selectedIds.has(tx.id)
+                            ? "bg-muted/50"
+                            : "hover:bg-muted/30"
+                        } ${hasSplits ? "bg-muted/20" : ""}`}
+                        onClick={() => setFocusedIndex(index)}
                       >
-                        <option value="">Untagged</option>
-                        <option value="reimbursable">Reimbursable</option>
-                        <option value="personal">Personal</option>
-                        <option value="ignore">Ignore</option>
-                      </select>
-                    </td>
-                  </tr>
-                ))}
+                        <td className="px-4 py-3">
+                          <input
+                            type="checkbox"
+                            checked={selectedIds.has(tx.id)}
+                            onChange={() => toggleSelect(tx.id)}
+                            className="rounded"
+                            disabled={hasSplits}
+                          />
+                        </td>
+                        <td className="px-4 py-3 text-sm text-muted-foreground">{tx.date}</td>
+                        <td className="px-4 py-3">
+                          {editingMerchant === tx.id ? (
+                            <Input
+                              value={editMerchantValue}
+                              onChange={(e) => setEditMerchantValue(e.target.value)}
+                              onBlur={saveEditedMerchant}
+                              onKeyDown={(e) => {
+                                if (e.key === "Enter") saveEditedMerchant();
+                                if (e.key === "Escape") setEditingMerchant(null);
+                              }}
+                              autoFocus
+                              className="h-7 text-sm"
+                            />
+                          ) : (
+                            <div 
+                              className="cursor-pointer group"
+                              onDoubleClick={() => startEditingMerchant(tx)}
+                              title="Double-click to edit"
+                            >
+                              <div className="text-sm font-medium group-hover:text-primary transition-colors flex items-center gap-2">
+                                {tx.merchant}
+                                {hasSplits && (
+                                  <Badge variant="outline" className="text-xs">Split</Badge>
+                                )}
+                              </div>
+                              <div className="text-xs text-muted-foreground truncate max-w-xs" title={tx.description}>
+                                {tx.description.substring(0, 50)}{tx.description.length > 50 ? "..." : ""}
+                              </div>
+                            </div>
+                          )}
+                        </td>
+                        <td className={`px-4 py-3 text-sm text-right font-mono ${tx.amount >= 0 ? "text-green-500" : "text-foreground"} ${hasSplits ? "line-through text-muted-foreground" : ""}`}>
+                          {formatAmount(tx.amount)} {tx.currency}
+                        </td>
+                        <td className="px-4 py-3 text-center">
+                          {hasSplits ? (
+                            <Badge variant="outline" className="text-xs">See splits</Badge>
+                          ) : (
+                            getTagBadge(tx.tag)
+                          )}
+                        </td>
+                        <td className="px-4 py-3 text-right">
+                          <div className="flex items-center justify-end gap-1">
+                            {!hasSplits && !tx.isSplit && (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setSplitModalTx(tx);
+                                }}
+                                title="Split transaction"
+                              >
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
+                                </svg>
+                              </Button>
+                            )}
+                            {!hasSplits && (
+                              <select
+                                value={tx.tag || ""}
+                                onChange={(e) => handleTagChange(tx.id, (e.target.value || null) as TransactionTag)}
+                                className="text-sm bg-transparent border rounded px-2 py-1"
+                                onClick={(e) => e.stopPropagation()}
+                              >
+                                <option value="">Untagged</option>
+                                <option value="reimbursable">Reimbursable</option>
+                                <option value="personal">Personal</option>
+                                <option value="ignore">Ignore</option>
+                              </select>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                      {/* Split children rows */}
+                      {splitChildren.map((child) => (
+                        <tr 
+                          key={child.id}
+                          className="border-b last:border-0 bg-muted/10 hover:bg-muted/20"
+                        >
+                          <td className="px-4 py-2 pl-8">
+                            <span className="text-muted-foreground">↳</span>
+                          </td>
+                          <td className="px-4 py-2 text-sm text-muted-foreground">{child.date}</td>
+                          <td className="px-4 py-2">
+                            <div className="text-sm text-muted-foreground">
+                              {child.splitPercentage}% split
+                            </div>
+                          </td>
+                          <td className="px-4 py-2 text-sm text-right font-mono">
+                            {formatAmount(child.amount)} {child.currency}
+                          </td>
+                          <td className="px-4 py-2 text-center">{getTagBadge(child.tag)}</td>
+                          <td className="px-4 py-2 text-right">
+                            <select
+                              value={child.tag || ""}
+                              onChange={(e) => handleTagChange(child.id, (e.target.value || null) as TransactionTag)}
+                              className="text-sm bg-transparent border rounded px-2 py-1"
+                            >
+                              <option value="">Untagged</option>
+                              <option value="reimbursable">Reimbursable</option>
+                              <option value="personal">Personal</option>
+                              <option value="ignore">Ignore</option>
+                            </select>
+                          </td>
+                        </tr>
+                      ))}
+                    </>
+                  );
+                })}
               </tbody>
             </table>
           </div>
         </CardContent>
       </Card>
 
-      {/* Rules Manager Modal */}
+      {/* Modals */}
       <RulesManager isOpen={showRulesManager} onClose={() => setShowRulesManager(false)} />
+      <DuplicateDetector isOpen={showDuplicates} onClose={() => setShowDuplicates(false)} />
+      <MerchantManager isOpen={showMerchants} onClose={() => setShowMerchants(false)} />
+      {splitModalTx && (
+        <SplitTransactionModal
+          transaction={splitModalTx}
+          onSplit={handleSplitTransaction}
+          onClose={() => setSplitModalTx(null)}
+        />
+      )}
     </div>
   );
 }

@@ -25,7 +25,7 @@ const faqs = [
   },
   {
     question: "Do you offer refunds?",
-    answer: "Yes, 30-day money-back guarantee. If the tool doesn't save you time or money, just email us and we'll refund you. No questions asked.",
+    answer: "Yes, 7-day money-back guarantee. If the tool doesn't save you time or money, just email us and we'll refund you. No questions asked.",
   },
 ];
 
