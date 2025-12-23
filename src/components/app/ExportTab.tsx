@@ -132,7 +132,7 @@ export function ExportTab() {
             )}
             <p className="text-sm text-muted-foreground mt-3">
               Don&apos;t have a license?{" "}
-              <a href="https://gumroad.com" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">
+              <a href="https://jouhafaz.gumroad.com/l/rizayy" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">
                 Get one for $54 (~199 AED) →
               </a>
             </p>
