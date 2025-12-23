@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useEffect, useCallback, useRef } from "react";
+import React, { useState, useMemo, useEffect, useCallback, useRef } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -460,9 +460,8 @@ export function TransactionsTab() {
                   const hasSplits = splitChildren.length > 0;
                   
                   return (
-                    <>
+                    <React.Fragment key={tx.id}>
                       <tr 
-                        key={tx.id} 
                         data-row-index={index}
                         className={`border-b last:border-0 transition-colors cursor-pointer ${
                           focusedIndex === index 
@@ -590,7 +589,7 @@ export function TransactionsTab() {
                           </td>
                         </tr>
                       ))}
-                    </>
+                    </React.Fragment>
                   );
                 })}
               </tbody>
