@@ -1,5 +1,8 @@
 import { get, set, del } from "idb-keyval";
-import type { Transaction, Rule, CardSafetyData, ClaimBatch, ImportProfile, MerchantAlias } from "./types";
+import type { 
+  Transaction, Rule, CardSafetyData, ClaimBatch, ImportProfile, MerchantAlias,
+  Goal, Bucket, CategoryRule, RecurringTransaction, IncomeConfig 
+} from "./types";
 
 const TRANSACTIONS_KEY = "reimburse_transactions";
 const RULES_KEY = "reimburse_rules";
@@ -8,6 +11,11 @@ const LICENSE_KEY = "reimburse_license";
 const BATCHES_KEY = "reimburse_batches";
 const PROFILES_KEY = "reimburse_import_profiles";
 const ALIASES_KEY = "reimburse_merchant_aliases";
+const GOALS_KEY = "claimpilot_goals";
+const BUCKETS_KEY = "claimpilot_buckets";
+const CATEGORY_RULES_KEY = "claimpilot_category_rules";
+const RECURRING_KEY = "claimpilot_recurring";
+const INCOME_KEY = "claimpilot_income";
 
 // Transactions
 export async function saveTransactions(transactions: Transaction[]): Promise<void> {
@@ -94,12 +102,27 @@ export async function loadCardSafety(): Promise<CardSafetyData | null> {
 }
 
 // License
-export async function saveLicense(key: string): Promise<void> {
-  await set(LICENSE_KEY, { key, validatedAt: new Date().toISOString() });
+import type { License, LicenseTier } from "./types";
+
+export async function saveLicense(
+  key: string, 
+  tier: LicenseTier = "paid", 
+  email?: string
+): Promise<void> {
+  await set(LICENSE_KEY, { 
+    key, 
+    tier,
+    validatedAt: new Date().toISOString(),
+    email,
+  });
 }
 
-export async function loadLicense(): Promise<{ key: string; validatedAt: string } | null> {
-  const data = await get<{ key: string; validatedAt: string }>(LICENSE_KEY);
+export async function loadLicense(): Promise<License | null> {
+  const data = await get<License>(LICENSE_KEY);
+  // Handle legacy format (without tier)
+  if (data && !data.tier) {
+    return { ...data, tier: "paid" };
+  }
   return data || null;
 }
 
@@ -215,4 +238,187 @@ function getDefaultAliases(): MerchantAlias[] {
     { id: "marriott", variants: ["MARRIOTT", "MARRIOTT HOTEL", "MARRIOTT BONVOY"], normalizedName: "Marriott" },
     { id: "hilton", variants: ["HILTON", "HILTON HOTEL", "HILTON HONORS"], normalizedName: "Hilton" },
   ];
+}
+
+// Goals
+export async function saveGoals(goals: Goal[]): Promise<void> {
+  await set(GOALS_KEY, goals);
+}
+
+export async function loadGoals(): Promise<Goal[]> {
+  const data = await get<Goal[]>(GOALS_KEY);
+  return data || [];
+}
+
+export async function addGoal(goal: Goal): Promise<Goal[]> {
+  const goals = await loadGoals();
+  goals.push(goal);
+  await saveGoals(goals);
+  return goals;
+}
+
+export async function updateGoal(
+  id: string,
+  updates: Partial<Goal>
+): Promise<Goal[]> {
+  const goals = await loadGoals();
+  const updated = goals.map((g) =>
+    g.id === id ? { ...g, ...updates, updatedAt: new Date().toISOString() } : g
+  );
+  await saveGoals(updated);
+  return updated;
+}
+
+export async function deleteGoal(id: string): Promise<Goal[]> {
+  const goals = await loadGoals();
+  const filtered = goals.filter((g) => g.id !== id);
+  await saveGoals(filtered);
+  return filtered;
+}
+
+// Buckets
+export async function saveBuckets(buckets: Bucket[]): Promise<void> {
+  await set(BUCKETS_KEY, buckets);
+}
+
+export async function loadBuckets(): Promise<Bucket[]> {
+  const data = await get<Bucket[]>(BUCKETS_KEY);
+  return data || getDefaultBuckets();
+}
+
+export async function addBucket(bucket: Bucket): Promise<Bucket[]> {
+  const buckets = await loadBuckets();
+  buckets.push(bucket);
+  await saveBuckets(buckets);
+  return buckets;
+}
+
+export async function updateBucket(
+  id: string,
+  updates: Partial<Bucket>
+): Promise<Bucket[]> {
+  const buckets = await loadBuckets();
+  const updated = buckets.map((b) =>
+    b.id === id ? { ...b, ...updates } : b
+  );
+  await saveBuckets(updated);
+  return updated;
+}
+
+export async function deleteBucket(id: string): Promise<Bucket[]> {
+  const buckets = await loadBuckets();
+  const filtered = buckets.filter((b) => b.id !== id);
+  await saveBuckets(filtered);
+  return filtered;
+}
+
+function getDefaultBuckets(): Bucket[] {
+  return [
+    {
+      id: "needs",
+      name: "Needs",
+      targetPercentage: 50,
+      linkedCategories: ["rent", "utilities", "groceries", "transport", "health", "insurance"],
+      color: "#3b82f6",
+      createdAt: new Date().toISOString(),
+    },
+    {
+      id: "wants",
+      name: "Wants",
+      targetPercentage: 30,
+      linkedCategories: ["dining", "shopping", "entertainment", "subscriptions", "travel"],
+      color: "#f97316",
+      createdAt: new Date().toISOString(),
+    },
+    {
+      id: "goals",
+      name: "Goals",
+      targetPercentage: 20,
+      linkedCategories: ["savings", "investment"],
+      color: "#22c55e",
+      createdAt: new Date().toISOString(),
+    },
+  ];
+}
+
+// Category Rules
+export async function saveCategoryRules(rules: CategoryRule[]): Promise<void> {
+  await set(CATEGORY_RULES_KEY, rules);
+}
+
+export async function loadCategoryRules(): Promise<CategoryRule[]> {
+  const data = await get<CategoryRule[]>(CATEGORY_RULES_KEY);
+  return data || [];
+}
+
+export async function addCategoryRule(rule: CategoryRule): Promise<CategoryRule[]> {
+  const rules = await loadCategoryRules();
+  rules.push(rule);
+  await saveCategoryRules(rules);
+  return rules;
+}
+
+export async function updateCategoryRule(
+  id: string,
+  updates: Partial<CategoryRule>
+): Promise<CategoryRule[]> {
+  const rules = await loadCategoryRules();
+  const updated = rules.map((r) =>
+    r.id === id ? { ...r, ...updates } : r
+  );
+  await saveCategoryRules(updated);
+  return updated;
+}
+
+export async function deleteCategoryRule(id: string): Promise<CategoryRule[]> {
+  const rules = await loadCategoryRules();
+  const filtered = rules.filter((r) => r.id !== id);
+  await saveCategoryRules(filtered);
+  return filtered;
+}
+
+// Recurring Transactions
+export async function saveRecurring(recurring: RecurringTransaction[]): Promise<void> {
+  await set(RECURRING_KEY, recurring);
+}
+
+export async function loadRecurring(): Promise<RecurringTransaction[]> {
+  const data = await get<RecurringTransaction[]>(RECURRING_KEY);
+  return data || [];
+}
+
+export async function addRecurring(item: RecurringTransaction): Promise<RecurringTransaction[]> {
+  const recurring = await loadRecurring();
+  recurring.push(item);
+  await saveRecurring(recurring);
+  return recurring;
+}
+
+export async function updateRecurring(
+  id: string,
+  updates: Partial<RecurringTransaction>
+): Promise<RecurringTransaction[]> {
+  const recurring = await loadRecurring();
+  const updated = recurring.map((r) =>
+    r.id === id ? { ...r, ...updates } : r
+  );
+  await saveRecurring(updated);
+  return updated;
+}
+
+export async function deleteRecurring(id: string): Promise<RecurringTransaction[]> {
+  const recurring = await loadRecurring();
+  const filtered = recurring.filter((r) => r.id !== id);
+  await saveRecurring(filtered);
+  return filtered;
+}
+
+// Income Config
+export async function saveIncomeConfig(config: IncomeConfig): Promise<void> {
+  await set(INCOME_KEY, config);
+}
+
+export async function loadIncomeConfig(): Promise<IncomeConfig | null> {
+  const data = await get<IncomeConfig>(INCOME_KEY);
+  return data || null;
 }

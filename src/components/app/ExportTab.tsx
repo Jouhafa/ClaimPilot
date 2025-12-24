@@ -11,14 +11,26 @@ import { exportToCSV, exportToExcel, downloadCSV, downloadExcel, calculateSummar
 import { EXPORT_PRESETS, exportToPresetCSV, downloadPresetCSV, type ExportPreset } from "@/lib/exportPresets";
 import { saveLicense, loadLicense, clearLicense } from "@/lib/storage";
 import { PDFSummary } from "./PDFSummary";
+import type { LicenseTier, License } from "@/lib/types";
+
+const TIER_LABELS: Record<LicenseTier, string> = {
+  free: "Free",
+  paid: "Lifetime Access",
+  premium: "Premium",
+};
+
+const TIER_COLORS: Record<LicenseTier, string> = {
+  free: "bg-muted text-muted-foreground",
+  paid: "bg-green-500/20 text-green-500",
+  premium: "bg-purple-500/20 text-purple-500",
+};
 
 export function ExportTab() {
   const { transactions } = useApp();
   const [licenseKey, setLicenseKey] = useState("");
-  const [isUnlocked, setIsUnlocked] = useState(false);
+  const [license, setLicense] = useState<License | null>(null);
   const [isVerifying, setIsVerifying] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [purchaseInfo, setPurchaseInfo] = useState<{ email?: string } | null>(null);
   const [selectedPreset, setSelectedPreset] = useState<ExportPreset>("simple");
   const [showPDFPreview, setShowPDFPreview] = useState(false);
 
@@ -28,12 +40,15 @@ export function ExportTab() {
     [transactions]
   );
 
+  const isUnlocked = license && license.tier !== "free";
+  const isPremium = license?.tier === "premium";
+
   // Check for existing license on mount
   useEffect(() => {
-    loadLicense().then((license) => {
-      if (license) {
-        setIsUnlocked(true);
-        setLicenseKey(license.key);
+    loadLicense().then((savedLicense) => {
+      if (savedLicense) {
+        setLicense(savedLicense);
+        setLicenseKey(savedLicense.key);
       }
     });
   }, []);
@@ -57,9 +72,14 @@ export function ExportTab() {
       const data = await response.json();
 
       if (data.valid) {
-        setIsUnlocked(true);
-        setPurchaseInfo(data.purchase);
-        await saveLicense(licenseKey.trim());
+        const newLicense: License = {
+          key: licenseKey.trim(),
+          tier: data.tier || "paid",
+          validatedAt: new Date().toISOString(),
+          email: data.purchase?.email,
+        };
+        setLicense(newLicense);
+        await saveLicense(newLicense.key, newLicense.tier, newLicense.email);
       } else {
         setError(data.error || "Invalid license key");
       }
@@ -72,9 +92,8 @@ export function ExportTab() {
 
   const handleRemoveLicense = async () => {
     await clearLicense();
-    setIsUnlocked(false);
+    setLicense(null);
     setLicenseKey("");
-    setPurchaseInfo(null);
   };
 
   const handleExportCSV = () => {
@@ -107,7 +126,7 @@ export function ExportTab() {
         </p>
       </div>
 
-      {/* License Key Input */}
+      {/* License Status / Unlock */}
       {!isUnlocked ? (
         <Card className="border-primary/30 bg-primary/5">
           <CardHeader>
@@ -141,28 +160,44 @@ export function ExportTab() {
             {error && (
               <p className="text-sm text-destructive mt-2">{error}</p>
             )}
-            <p className="text-sm text-muted-foreground mt-3">
-              Don&apos;t have a license?{" "}
-              <a href="https://jouhafaz.gumroad.com/l/rizayy" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">
-                Get one for $54 (~199 AED) →
-              </a>
-            </p>
+            <div className="mt-4 space-y-2">
+              <p className="text-sm text-muted-foreground">
+                Don&apos;t have a license?
+              </p>
+              <div className="flex flex-wrap gap-2">
+                <a 
+                  href="https://jouhafaz.gumroad.com/l/rizayy" 
+                  target="_blank" 
+                  rel="noopener noreferrer" 
+                  className="text-primary hover:underline text-sm"
+                >
+                  Lifetime Access ($54) →
+                </a>
+              </div>
+            </div>
           </CardContent>
         </Card>
       ) : (
-        <Card className="border-green-500/30 bg-green-500/5">
+        <Card className={`border-2 ${license?.tier === "premium" ? "border-purple-500/30 bg-purple-500/5" : "border-green-500/30 bg-green-500/5"}`}>
           <CardContent className="pt-6">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-full bg-green-500/20 flex items-center justify-center">
-                  <svg className="w-5 h-5 text-green-500" fill="currentColor" viewBox="0 0 20 20">
+                <div className={`w-10 h-10 rounded-full flex items-center justify-center ${license?.tier === "premium" ? "bg-purple-500/20" : "bg-green-500/20"}`}>
+                  <svg className={`w-5 h-5 ${license?.tier === "premium" ? "text-purple-500" : "text-green-500"}`} fill="currentColor" viewBox="0 0 20 20">
                     <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
                   </svg>
                 </div>
                 <div>
-                  <p className="font-semibold text-green-500">License Activated</p>
+                  <div className="flex items-center gap-2">
+                    <p className={`font-semibold ${license?.tier === "premium" ? "text-purple-500" : "text-green-500"}`}>
+                      {TIER_LABELS[license?.tier || "paid"]}
+                    </p>
+                    <Badge className={TIER_COLORS[license?.tier || "paid"]}>
+                      {license?.tier === "premium" ? "All Features" : "Export Unlocked"}
+                    </Badge>
+                  </div>
                   <p className="text-sm text-muted-foreground">
-                    {purchaseInfo?.email || "Export features unlocked"}
+                    {license?.email || "Full export features enabled"}
                   </p>
                 </div>
               </div>
@@ -170,6 +205,14 @@ export function ExportTab() {
                 Remove
               </Button>
             </div>
+            {license?.tier === "paid" && (
+              <div className="mt-4 p-3 rounded-lg bg-muted/50 text-sm">
+                <p className="text-muted-foreground">
+                  Want monthly action plans & AI narratives?{" "}
+                  <span className="text-purple-500 font-medium">Premium coming soon!</span>
+                </p>
+              </div>
+            )}
           </CardContent>
         </Card>
       )}
@@ -218,7 +261,7 @@ export function ExportTab() {
                 Choose a format that matches your finance team&apos;s requirements
               </CardDescription>
             </div>
-            {!isUnlocked && <Badge variant="outline">Locked</Badge>}
+            {!isUnlocked && <Badge variant="outline">Lifetime+</Badge>}
           </div>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -278,7 +321,7 @@ export function ExportTab() {
         </CardContent>
       </Card>
 
-      {/* PDF Summary Export */}
+      {/* PDF Summary Export - Free */}
       <Card>
         <CardHeader>
           <div className="flex items-center justify-between">
@@ -322,7 +365,7 @@ export function ExportTab() {
           <CardHeader>
             <div className="flex items-center justify-between">
               <CardTitle className="text-lg">Standard CSV</CardTitle>
-              {!isUnlocked && <Badge variant="outline">Locked</Badge>}
+              {!isUnlocked && <Badge variant="outline">Lifetime+</Badge>}
             </div>
             <CardDescription>
               Basic CSV with all fields
@@ -371,7 +414,7 @@ export function ExportTab() {
           <CardHeader>
             <div className="flex items-center justify-between">
               <CardTitle className="text-lg">Excel Export</CardTitle>
-              {!isUnlocked && <Badge variant="outline">Locked</Badge>}
+              {!isUnlocked && <Badge variant="outline">Lifetime+</Badge>}
             </div>
             <CardDescription>
               Multi-sheet Excel workbook

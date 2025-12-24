@@ -1,10 +1,12 @@
-import type { Transaction, TransactionTag, TagConfidence, Rule } from "./types";
+import type { Transaction, TransactionTag, TagConfidence, Rule, TransactionCategory, CategoryRule } from "./types";
 import { ruleMatchesTransaction, getRuleTag } from "./types";
+import { detectCategory } from "./categories";
 
 export interface AutoTagResult {
   tag: TransactionTag;
   confidence: TagConfidence;
   reason: string;
+  category?: TransactionCategory;
 }
 
 // Pattern definitions for auto-tagging
@@ -176,16 +178,27 @@ export function autoTagTransaction(
 }
 
 /**
- * Auto-tag multiple transactions
+ * Auto-tag and auto-categorize multiple transactions
  */
 export function autoTagTransactions(
   transactions: Transaction[],
-  userRules: Rule[] = []
+  userRules: Rule[] = [],
+  categoryRules: CategoryRule[] = []
 ): Transaction[] {
   return transactions.map((tx) => {
-    // Skip if already tagged by user
+    // Apply category detection first
+    const categoryResult = detectCategory(tx, categoryRules);
+    
+    // Skip tagging if already tagged by user
     if (tx.tag && !tx.isAutoTagged) {
-      return tx;
+      return {
+        ...tx,
+        category: tx.category || categoryResult.category,
+        suggestedCategory: categoryResult.category,
+        spendingType: categoryResult.spendingType,
+        isRecurring: categoryResult.isRecurring,
+        isAutoCategorized: !tx.category,
+      };
     }
 
     const result = autoTagTransaction(tx, userRules);
@@ -199,6 +212,12 @@ export function autoTagTransactions(
         tagReason: result.reason,
         isAutoTagged: true,
         status: result.tag === "reimbursable" ? "draft" : undefined,
+        // Add category info
+        category: categoryResult.category,
+        suggestedCategory: categoryResult.category,
+        spendingType: categoryResult.spendingType,
+        isRecurring: categoryResult.isRecurring,
+        isAutoCategorized: true,
       };
     }
 
@@ -207,6 +226,12 @@ export function autoTagTransactions(
       suggestedTag: null,
       tagConfidence: undefined,
       tagReason: "No pattern match",
+      // Still add category even without tag
+      category: categoryResult.category,
+      suggestedCategory: categoryResult.category,
+      spendingType: categoryResult.spendingType,
+      isRecurring: categoryResult.isRecurring,
+      isAutoCategorized: true,
     };
   });
 }

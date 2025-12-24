@@ -1,15 +1,30 @@
 export type TransactionTag = "reimbursable" | "personal" | "ignore" | null;
 export type ReimbursementStatus = "draft" | "submitted" | "paid";
 export type TagConfidence = "high" | "medium" | "low";
+
+// Expanded categories for financial advisor
 export type TransactionCategory = 
-  | "travel" 
-  | "meals" 
-  | "transport" 
-  | "accommodation" 
-  | "software" 
-  | "office" 
-  | "communication" 
+  | "groceries"
+  | "dining"
+  | "transport"
+  | "rent"
+  | "utilities"
+  | "subscriptions"
+  | "travel"
+  | "shopping"
+  | "health"
+  | "entertainment"
+  | "education"
+  | "insurance"
+  | "savings"
+  | "investment"
+  | "income"
+  | "transfer"
+  | "fees"
   | "other";
+
+// Spending type classification
+export type SpendingType = "fixed" | "variable" | "income" | "transfer";
 
 export interface Transaction {
   id: string;
@@ -23,15 +38,20 @@ export interface Transaction {
   note?: string;
   batchId?: string; // Reference to ClaimBatch
   category?: TransactionCategory;
+  spendingType?: SpendingType; // fixed, variable, income, transfer
+  isRecurring?: boolean; // Detected as recurring/subscription
+  recurringFrequency?: "weekly" | "monthly" | "quarterly" | "yearly";
   // Split transaction support
   parentId?: string; // If this is a split, reference to original
   splitPercentage?: number; // e.g., 70 for 70%
   isSplit?: boolean; // True if this transaction has been split
   // Smart auto-tagging
   suggestedTag?: TransactionTag;
+  suggestedCategory?: TransactionCategory;
   tagConfidence?: TagConfidence;
   tagReason?: string; // e.g., "Matched: Hotel keyword"
   isAutoTagged?: boolean; // True if tag was auto-applied
+  isAutoCategorized?: boolean; // True if category was auto-applied
   createdAt: string;
 }
 
@@ -209,14 +229,158 @@ export function calculateCurrencyTotals(transactions: Transaction[]): Map<string
   return totals;
 }
 
-// Category labels
-export const CATEGORY_LABELS: Record<TransactionCategory, string> = {
-  travel: "Travel",
-  meals: "Meals & Dining",
-  transport: "Transport",
-  accommodation: "Accommodation",
-  software: "Software & Subscriptions",
-  office: "Office Supplies",
-  communication: "Communication",
-  other: "Other",
+// Category labels and icons
+export const CATEGORY_CONFIG: Record<TransactionCategory, { label: string; icon: string; color: string; spendingType: SpendingType }> = {
+  groceries: { label: "Groceries", icon: "ShoppingCart", color: "#22c55e", spendingType: "variable" },
+  dining: { label: "Dining & Food", icon: "Utensils", color: "#f97316", spendingType: "variable" },
+  transport: { label: "Transport", icon: "Car", color: "#3b82f6", spendingType: "variable" },
+  rent: { label: "Rent & Housing", icon: "Home", color: "#8b5cf6", spendingType: "fixed" },
+  utilities: { label: "Utilities", icon: "Zap", color: "#eab308", spendingType: "fixed" },
+  subscriptions: { label: "Subscriptions", icon: "Repeat", color: "#ec4899", spendingType: "fixed" },
+  travel: { label: "Travel", icon: "Plane", color: "#06b6d4", spendingType: "variable" },
+  shopping: { label: "Shopping", icon: "ShoppingBag", color: "#f43f5e", spendingType: "variable" },
+  health: { label: "Health & Fitness", icon: "Heart", color: "#14b8a6", spendingType: "variable" },
+  entertainment: { label: "Entertainment", icon: "Film", color: "#a855f7", spendingType: "variable" },
+  education: { label: "Education", icon: "GraduationCap", color: "#0ea5e9", spendingType: "variable" },
+  insurance: { label: "Insurance", icon: "Shield", color: "#64748b", spendingType: "fixed" },
+  savings: { label: "Savings", icon: "PiggyBank", color: "#10b981", spendingType: "transfer" },
+  investment: { label: "Investment", icon: "TrendingUp", color: "#6366f1", spendingType: "transfer" },
+  income: { label: "Income", icon: "ArrowDownCircle", color: "#22c55e", spendingType: "income" },
+  transfer: { label: "Transfer", icon: "ArrowRightLeft", color: "#94a3b8", spendingType: "transfer" },
+  fees: { label: "Bank Fees", icon: "AlertCircle", color: "#ef4444", spendingType: "fixed" },
+  other: { label: "Other", icon: "MoreHorizontal", color: "#6b7280", spendingType: "variable" },
 };
+
+// Legacy category labels for backwards compatibility
+export const CATEGORY_LABELS: Record<TransactionCategory, string> = Object.fromEntries(
+  Object.entries(CATEGORY_CONFIG).map(([key, val]) => [key, val.label])
+) as Record<TransactionCategory, string>;
+
+// Goal interface for financial planning
+export interface Goal {
+  id: string;
+  name: string; // "Car down payment"
+  targetAmount: number; // 50000
+  targetDate: string; // ISO date
+  currentAmount: number; // 12000
+  priority: "critical" | "high" | "medium" | "low";
+  category: "emergency" | "purchase" | "investment" | "lifestyle" | "debt";
+  monthlyContribution?: number; // calculated or manual
+  color?: string;
+  icon?: string;
+  createdAt: string;
+  updatedAt?: string;
+}
+
+// Bucket interface for budget allocation
+export interface Bucket {
+  id: string;
+  name: string; // "Needs", "Wants", "Goals"
+  targetPercentage: number; // e.g., 50 for 50%
+  targetAmount?: number; // optional fixed amount
+  linkedCategories: TransactionCategory[]; // categories that count toward this bucket
+  linkedGoalId?: string; // optional goal ID
+  color: string;
+  createdAt: string;
+}
+
+// User income configuration
+export interface IncomeConfig {
+  monthlyIncome: number;
+  currency: string;
+  salaryDay?: number; // day of month salary arrives
+  additionalIncome?: number; // side income, bonuses
+  lastUpdated: string;
+}
+
+// Category rule for user-defined categorization
+export interface CategoryRule {
+  id: string;
+  name: string;
+  conditions: RuleCondition[];
+  category: TransactionCategory;
+  spendingType?: SpendingType;
+  isRecurring?: boolean;
+  priority: number; // higher = checked first
+  isUserDefined: boolean; // false for built-in rules
+  createdAt: string;
+}
+
+// Recurring transaction detection
+export interface RecurringTransaction {
+  id: string;
+  merchantPattern: string;
+  normalizedMerchant: string;
+  category: TransactionCategory;
+  averageAmount: number;
+  frequency: "weekly" | "monthly" | "quarterly" | "yearly";
+  lastOccurrence: string;
+  nextExpected: string;
+  occurrences: number;
+  transactionIds: string[]; // linked transactions
+  isActive: boolean;
+  isUserConfirmed: boolean;
+}
+
+// License Tier System
+export type LicenseTier = "free" | "paid" | "premium";
+
+export interface License {
+  key: string;
+  tier: LicenseTier;
+  validatedAt: string;
+  email?: string;
+}
+
+// Feature access by tier
+export const TIER_FEATURES: Record<LicenseTier, string[]> = {
+  free: [
+    "import-statements",
+    "auto-categorization",
+    "spending-dashboard",
+    "recurring-detection",
+    "basic-export",
+    "anomaly-alerts",
+  ],
+  paid: [
+    "import-statements",
+    "auto-categorization",
+    "spending-dashboard",
+    "recurring-detection",
+    "basic-export",
+    "anomaly-alerts",
+    "goals",
+    "buckets",
+    "scenario-mode",
+    "smart-suggestions",
+    "advanced-export",
+    "reimbursement-tracker",
+    "card-safety",
+    "ai-insights",
+  ],
+  premium: [
+    "import-statements",
+    "auto-categorization",
+    "spending-dashboard",
+    "recurring-detection",
+    "basic-export",
+    "anomaly-alerts",
+    "goals",
+    "buckets",
+    "scenario-mode",
+    "smart-suggestions",
+    "advanced-export",
+    "reimbursement-tracker",
+    "card-safety",
+    "ai-insights",
+    "action-plan",
+    "investment-policy",
+    "monthly-narrative",
+    "priority-support",
+  ],
+};
+
+// Check if a feature is available for a tier
+export function hasFeatureAccess(tier: LicenseTier, feature: string): boolean {
+  return TIER_FEATURES[tier].includes(feature);
+}

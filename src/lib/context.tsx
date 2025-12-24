@@ -2,7 +2,12 @@
 
 import React, { createContext, useContext, useState, useEffect, useCallback } from "react";
 import { v4 as uuidv4 } from "uuid";
-import type { Transaction, Rule, ClaimBatch, MerchantAlias } from "./types";
+import type { 
+  Transaction, Rule, ClaimBatch, MerchantAlias, CardSafetyData,
+  Goal, Bucket, CategoryRule, RecurringTransaction, IncomeConfig,
+  License, LicenseTier 
+} from "./types";
+import { hasFeatureAccess } from "./types";
 import {
   loadTransactions,
   saveTransactions,
@@ -16,32 +21,98 @@ import {
   saveBatches,
   loadAliases,
   saveAliases,
+  loadGoals,
+  saveGoals,
+  loadBuckets,
+  saveBuckets,
+  loadCategoryRules,
+  saveCategoryRules,
+  loadRecurring,
+  saveRecurring,
+  loadIncomeConfig,
+  saveIncomeConfig,
+  loadCardSafety,
+  saveCardSafety,
+  loadLicense,
+  saveLicense,
+  clearLicense,
 } from "./storage";
 
 interface AppContextType {
+  // Data
   transactions: Transaction[];
   rules: Rule[];
   batches: ClaimBatch[];
   aliases: MerchantAlias[];
+  goals: Goal[];
+  buckets: Bucket[];
+  categoryRules: CategoryRule[];
+  recurring: RecurringTransaction[];
+  incomeConfig: IncomeConfig | null;
+  cardSafety: CardSafetyData | null;
+  license: License | null;
   isLoading: boolean;
+  
+  // License functions
+  tier: LicenseTier;
+  hasAccess: (feature: string) => boolean;
+  setLicense: (license: License | null) => Promise<void>;
+  verifyLicense: (key: string) => Promise<{ valid: boolean; error?: string }>;
+  removeLicense: () => Promise<void>;
+  
+  // Transaction functions
   addTransactions: (newTransactions: Transaction[]) => Promise<void>;
   updateTransaction: (id: string, updates: Partial<Transaction>) => Promise<void>;
   updateTransactions: (ids: string[], updates: Partial<Transaction>) => Promise<void>;
   deleteTransaction: (id: string) => Promise<void>;
   deleteAllTransactions: () => Promise<void>;
   splitTransaction: (id: string, splits: { percentage: number; tag: Transaction["tag"] }[]) => Promise<void>;
+  
+  // Rule functions
   addRule: (rule: Rule) => Promise<void>;
   updateRule: (id: string, updates: Partial<Rule>) => Promise<void>;
   deleteRule: (id: string) => Promise<void>;
+  
+  // Batch functions
   addBatch: (batch: ClaimBatch) => Promise<void>;
   updateBatch: (id: string, updates: Partial<ClaimBatch>) => Promise<void>;
   deleteBatch: (id: string) => Promise<void>;
   assignToBatch: (transactionIds: string[], batchId: string) => Promise<void>;
   removeFromBatch: (transactionIds: string[]) => Promise<void>;
+  
+  // Alias functions
   addAlias: (alias: MerchantAlias) => Promise<void>;
   updateAlias: (id: string, updates: Partial<MerchantAlias>) => Promise<void>;
   deleteAlias: (id: string) => Promise<void>;
   applyMerchantNormalization: () => Promise<number>;
+  
+  // Goal functions
+  addGoal: (goal: Goal) => Promise<void>;
+  updateGoal: (id: string, updates: Partial<Goal>) => Promise<void>;
+  deleteGoal: (id: string) => Promise<void>;
+  
+  // Bucket functions
+  addBucket: (bucket: Bucket) => Promise<void>;
+  updateBucket: (id: string, updates: Partial<Bucket>) => Promise<void>;
+  deleteBucket: (id: string) => Promise<void>;
+  
+  // Category rule functions
+  addCategoryRule: (rule: CategoryRule) => Promise<void>;
+  updateCategoryRule: (id: string, updates: Partial<CategoryRule>) => Promise<void>;
+  deleteCategoryRule: (id: string) => Promise<void>;
+  
+  // Recurring functions
+  addRecurring: (item: RecurringTransaction) => Promise<void>;
+  updateRecurring: (id: string, updates: Partial<RecurringTransaction>) => Promise<void>;
+  deleteRecurring: (id: string) => Promise<void>;
+  setRecurring: (items: RecurringTransaction[]) => Promise<void>;
+  
+  // Income config
+  setIncomeConfig: (config: IncomeConfig) => Promise<void>;
+  
+  // Card safety
+  setCardSafety: (data: CardSafetyData) => Promise<void>;
+  
   refreshData: () => Promise<void>;
 }
 
@@ -52,21 +123,62 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [rules, setRules] = useState<Rule[]>([]);
   const [batches, setBatches] = useState<ClaimBatch[]>([]);
   const [aliases, setAliases] = useState<MerchantAlias[]>([]);
+  const [goals, setGoals] = useState<Goal[]>([]);
+  const [buckets, setBuckets] = useState<Bucket[]>([]);
+  const [categoryRules, setCategoryRules] = useState<CategoryRule[]>([]);
+  const [recurring, setRecurringState] = useState<RecurringTransaction[]>([]);
+  const [incomeConfig, setIncomeConfigState] = useState<IncomeConfig | null>(null);
+  const [cardSafety, setCardSafetyState] = useState<CardSafetyData | null>(null);
+  const [license, setLicenseState] = useState<License | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  
+  // Computed tier
+  const tier: LicenseTier = license?.tier || "free";
+  
+  // Check feature access
+  const hasAccess = useCallback((feature: string) => {
+    return hasFeatureAccess(tier, feature);
+  }, [tier]);
 
   const refreshData = useCallback(async () => {
     setIsLoading(true);
     try {
-      const [loadedTransactions, loadedRules, loadedBatches, loadedAliases] = await Promise.all([
+      const [
+        loadedTransactions, 
+        loadedRules, 
+        loadedBatches, 
+        loadedAliases,
+        loadedGoals,
+        loadedBuckets,
+        loadedCategoryRules,
+        loadedRecurring,
+        loadedIncomeConfig,
+        loadedCardSafety,
+        loadedLicense,
+      ] = await Promise.all([
         loadTransactions(),
         loadRules(),
         loadBatches(),
         loadAliases(),
+        loadGoals(),
+        loadBuckets(),
+        loadCategoryRules(),
+        loadRecurring(),
+        loadIncomeConfig(),
+        loadCardSafety(),
+        loadLicense(),
       ]);
       setTransactions(loadedTransactions);
       setRules(loadedRules);
       setBatches(loadedBatches);
       setAliases(loadedAliases);
+      setGoals(loadedGoals);
+      setBuckets(loadedBuckets);
+      setCategoryRules(loadedCategoryRules);
+      setRecurringState(loadedRecurring);
+      setIncomeConfigState(loadedIncomeConfig);
+      setCardSafetyState(loadedCardSafety);
+      setLicenseState(loadedLicense);
     } catch (error) {
       console.error("Failed to load data:", error);
     } finally {
@@ -78,6 +190,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     refreshData();
   }, [refreshData]);
 
+  // Transaction functions
   const addTransactions = async (newTransactions: Transaction[]) => {
     const merged = await addTransactionsToStorage(newTransactions);
     setTransactions(merged);
@@ -107,7 +220,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setTransactions([]);
   };
 
-  // Split a transaction into multiple parts
   const splitTransaction = async (
     id: string, 
     splits: { percentage: number; tag: Transaction["tag"] }[]
@@ -115,16 +227,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     const tx = transactions.find((t) => t.id === id);
     if (!tx) return;
 
-    // Validate percentages sum to 100
     const totalPercentage = splits.reduce((sum, s) => sum + s.percentage, 0);
     if (Math.abs(totalPercentage - 100) > 0.01) {
       throw new Error("Split percentages must sum to 100");
     }
 
-    // Mark original as split
     const updatedOriginal = { ...tx, isSplit: true };
     
-    // Create split children
     const splitTransactions: Transaction[] = splits.map((split, index) => ({
       id: uuidv4(),
       date: tx.date,
@@ -136,10 +245,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       status: split.tag === "reimbursable" ? "draft" : undefined,
       parentId: tx.id,
       splitPercentage: split.percentage,
+      category: tx.category,
       createdAt: new Date().toISOString(),
     }));
 
-    // Update storage
     const allTransactions = await loadTransactions();
     const updated = allTransactions.map((t) =>
       t.id === id ? updatedOriginal : t
@@ -149,6 +258,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setTransactions(withSplits);
   };
 
+  // Rule functions
   const addRule = async (rule: Rule) => {
     const newRules = [...rules, rule];
     await saveRules(newRules);
@@ -181,7 +291,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   };
 
   const deleteBatch = async (id: string) => {
-    // Also remove batch reference from transactions
     const updatedTransactions = transactions.map((tx) =>
       tx.batchId === id ? { ...tx, batchId: undefined } : tx
     );
@@ -228,7 +337,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setAliases(filtered);
   };
 
-  // Apply merchant normalization to all transactions
   const applyMerchantNormalization = async (): Promise<number> => {
     let count = 0;
     const updated = transactions.map((tx) => {
@@ -256,6 +364,140 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     return count;
   };
 
+  // Goal functions
+  const addGoal = async (goal: Goal) => {
+    const newGoals = [...goals, goal];
+    await saveGoals(newGoals);
+    setGoals(newGoals);
+  };
+
+  const updateGoal = async (id: string, updates: Partial<Goal>) => {
+    const updated = goals.map((g) => (g.id === id ? { ...g, ...updates, updatedAt: new Date().toISOString() } : g));
+    await saveGoals(updated);
+    setGoals(updated);
+  };
+
+  const deleteGoal = async (id: string) => {
+    const filtered = goals.filter((g) => g.id !== id);
+    await saveGoals(filtered);
+    setGoals(filtered);
+  };
+
+  // Bucket functions
+  const addBucket = async (bucket: Bucket) => {
+    const newBuckets = [...buckets, bucket];
+    await saveBuckets(newBuckets);
+    setBuckets(newBuckets);
+  };
+
+  const updateBucketFn = async (id: string, updates: Partial<Bucket>) => {
+    const updated = buckets.map((b) => (b.id === id ? { ...b, ...updates } : b));
+    await saveBuckets(updated);
+    setBuckets(updated);
+  };
+
+  const deleteBucketFn = async (id: string) => {
+    const filtered = buckets.filter((b) => b.id !== id);
+    await saveBuckets(filtered);
+    setBuckets(filtered);
+  };
+
+  // Category rule functions
+  const addCategoryRule = async (rule: CategoryRule) => {
+    const newRules = [...categoryRules, rule];
+    await saveCategoryRules(newRules);
+    setCategoryRules(newRules);
+  };
+
+  const updateCategoryRule = async (id: string, updates: Partial<CategoryRule>) => {
+    const updated = categoryRules.map((r) => (r.id === id ? { ...r, ...updates } : r));
+    await saveCategoryRules(updated);
+    setCategoryRules(updated);
+  };
+
+  const deleteCategoryRule = async (id: string) => {
+    const filtered = categoryRules.filter((r) => r.id !== id);
+    await saveCategoryRules(filtered);
+    setCategoryRules(filtered);
+  };
+
+  // Recurring functions
+  const addRecurring = async (item: RecurringTransaction) => {
+    const newRecurring = [...recurring, item];
+    await saveRecurring(newRecurring);
+    setRecurringState(newRecurring);
+  };
+
+  const updateRecurring = async (id: string, updates: Partial<RecurringTransaction>) => {
+    const updated = recurring.map((r) => (r.id === id ? { ...r, ...updates } : r));
+    await saveRecurring(updated);
+    setRecurringState(updated);
+  };
+
+  const deleteRecurring = async (id: string) => {
+    const filtered = recurring.filter((r) => r.id !== id);
+    await saveRecurring(filtered);
+    setRecurringState(filtered);
+  };
+
+  const setRecurring = async (items: RecurringTransaction[]) => {
+    await saveRecurring(items);
+    setRecurringState(items);
+  };
+
+  // Income config
+  const setIncomeConfig = async (config: IncomeConfig) => {
+    await saveIncomeConfig(config);
+    setIncomeConfigState(config);
+  };
+
+  // Card safety
+  const setCardSafety = async (data: CardSafetyData) => {
+    await saveCardSafety(data);
+    setCardSafetyState(data);
+  };
+
+  // License functions
+  const setLicense = async (newLicense: License | null) => {
+    if (newLicense) {
+      await saveLicense(newLicense.key, newLicense.tier, newLicense.email);
+    } else {
+      await clearLicense();
+    }
+    setLicenseState(newLicense);
+  };
+
+  const verifyLicense = async (key: string): Promise<{ valid: boolean; error?: string }> => {
+    try {
+      const response = await fetch("/api/verify", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ licenseKey: key }),
+      });
+      const data = await response.json();
+      
+      if (data.valid) {
+        const newLicense: License = {
+          key,
+          tier: data.tier || "paid",
+          validatedAt: new Date().toISOString(),
+          email: data.purchase?.email,
+        };
+        await setLicense(newLicense);
+        return { valid: true };
+      } else {
+        return { valid: false, error: data.error || "Invalid license key" };
+      }
+    } catch {
+      return { valid: false, error: "Failed to verify license" };
+    }
+  };
+
+  const removeLicense = async () => {
+    await clearLicense();
+    setLicenseState(null);
+  };
+
   return (
     <AppContext.Provider
       value={{
@@ -263,7 +505,19 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         rules,
         batches,
         aliases,
+        goals,
+        buckets,
+        categoryRules,
+        recurring,
+        incomeConfig,
+        cardSafety,
+        license,
         isLoading,
+        tier,
+        hasAccess,
+        setLicense,
+        verifyLicense,
+        removeLicense,
         addTransactions,
         updateTransaction,
         updateTransactions,
@@ -282,6 +536,21 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         updateAlias,
         deleteAlias,
         applyMerchantNormalization,
+        addGoal,
+        updateGoal,
+        deleteGoal,
+        addBucket,
+        updateBucket: updateBucketFn,
+        deleteBucket: deleteBucketFn,
+        addCategoryRule,
+        updateCategoryRule,
+        deleteCategoryRule,
+        addRecurring,
+        updateRecurring,
+        deleteRecurring,
+        setRecurring,
+        setIncomeConfig,
+        setCardSafety,
         refreshData,
       }}
     >
