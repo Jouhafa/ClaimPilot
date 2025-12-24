@@ -6,11 +6,16 @@ import { Button } from "@/components/ui/button";
 import { useApp } from "@/lib/context";
 import { parseFile } from "@/lib/parsers";
 import { generateSampleTransactions } from "@/lib/sampleData";
+import { autoTagTransactions } from "@/lib/autoTagger";
 import { ImportProfileManager } from "./ImportProfileManager";
 import { v4 as uuidv4 } from "uuid";
 import type { Transaction, ImportProfile } from "@/lib/types";
 
-export function ImportTab() {
+interface ImportTabProps {
+  onImportSuccess?: () => void;
+}
+
+export function ImportTab({ onImportSuccess }: ImportTabProps) {
   const { addTransactions, rules, transactions, deleteAllTransactions } = useApp();
   const [isDragging, setIsDragging] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -29,8 +34,12 @@ export function ImportTab() {
     setError(null);
     try {
       const sampleTransactions = generateSampleTransactions();
-      await addTransactions(sampleTransactions);
-      setSuccessCount(sampleTransactions.length);
+      // Auto-tag the sample transactions
+      const taggedTransactions = autoTagTransactions(sampleTransactions, rules);
+      await addTransactions(taggedTransactions);
+      setSuccessCount(taggedTransactions.length);
+      // Navigate to Review tab
+      onImportSuccess?.();
     } catch (err) {
       setError("Failed to load demo data");
       console.error(err);
@@ -62,8 +71,12 @@ export function ImportTab() {
         return;
       }
       
-      await addTransactions(parsed);
-      setSuccessCount(parsed.length);
+      // Auto-tag the parsed transactions
+      const taggedTransactions = autoTagTransactions(parsed, rules);
+      await addTransactions(taggedTransactions);
+      setSuccessCount(taggedTransactions.length);
+      // Navigate to Review tab
+      onImportSuccess?.();
     } catch (err) {
       console.error("Parse error:", err);
       
@@ -143,10 +156,14 @@ export function ImportTab() {
           createdAt: new Date().toISOString(),
         }));
         
-        await addTransactions(fullTransactions);
-        setSuccessCount(fullTransactions.length);
+        // Auto-tag the AI-parsed transactions
+        const taggedTransactions = autoTagTransactions(fullTransactions, rules);
+        await addTransactions(taggedTransactions);
+        setSuccessCount(taggedTransactions.length);
         setShowAIOption(false);
         setLastFileText(null);
+        // Navigate to Review tab
+        onImportSuccess?.();
       } else {
         setError("AI couldn't extract transactions. Please check the file format.");
       }

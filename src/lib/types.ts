@@ -1,5 +1,6 @@
 export type TransactionTag = "reimbursable" | "personal" | "ignore" | null;
 export type ReimbursementStatus = "draft" | "submitted" | "paid";
+export type TagConfidence = "high" | "medium" | "low";
 export type TransactionCategory = 
   | "travel" 
   | "meals" 
@@ -26,6 +27,11 @@ export interface Transaction {
   parentId?: string; // If this is a split, reference to original
   splitPercentage?: number; // e.g., 70 for 70%
   isSplit?: boolean; // True if this transaction has been split
+  // Smart auto-tagging
+  suggestedTag?: TransactionTag;
+  tagConfidence?: TagConfidence;
+  tagReason?: string; // e.g., "Matched: Hotel keyword"
+  isAutoTagged?: boolean; // True if tag was auto-applied
   createdAt: string;
 }
 
