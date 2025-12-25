@@ -9,7 +9,11 @@ import { useApp } from "@/lib/context";
 import { getAutoTagStats, findSimilarTransactions } from "@/lib/autoTagger";
 import type { Transaction, TransactionTag } from "@/lib/types";
 
-export function ReviewTab() {
+interface ReviewTabProps {
+  onNavigate: (tab: string) => void;
+}
+
+export function ReviewTab({ onNavigate }: ReviewTabProps) {
   const { transactions, updateTransaction, updateTransactions } = useApp();
   const [showApplySimilarToast, setShowApplySimilarToast] = useState<{
     tx: Transaction;
@@ -180,10 +184,10 @@ export function ReviewTab() {
               {completed.length} transactions tagged and ready for export
             </p>
             <div className="flex justify-center gap-3">
-              <Button variant="outline" onClick={() => window.location.hash = "#reimbursements"}>
+              <Button variant="outline" onClick={() => onNavigate("reimbursements")}>
                 View Reimbursements
               </Button>
-              <Button onClick={() => window.location.hash = "#export"}>
+              <Button onClick={() => onNavigate("export")}>
                 Export Reports
               </Button>
             </div>
@@ -204,7 +208,7 @@ export function ReviewTab() {
           </p>
         </div>
         {progressPercent === 100 && (
-          <Button onClick={() => window.location.hash = "#export"}>
+          <Button onClick={() => onNavigate("export")}>
             <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
             </svg>
@@ -272,7 +276,7 @@ export function ReviewTab() {
                   </div>
                   <div className="flex items-center gap-3">
                     <span className="font-mono text-sm">
-                      {Math.abs(tx.amount).toFixed(2)} {tx.currency}
+                      {Math.abs(tx.amount).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} {tx.currency}
                     </span>
                     <Badge className={getTagColor(tx.tag)}>
                       {tx.tag === "reimbursable" ? "R" : tx.tag === "personal" ? "P" : "I"}
@@ -328,7 +332,7 @@ export function ReviewTab() {
                   </div>
                   <div className="flex items-center gap-2">
                     <span className="font-mono text-sm mr-2">
-                      {Math.abs(tx.amount).toFixed(2)} {tx.currency}
+                      {Math.abs(tx.amount).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} {tx.currency}
                     </span>
                     <div className="flex gap-1">
                       <Button

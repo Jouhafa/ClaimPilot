@@ -114,19 +114,7 @@ export function AnalyticsDashboard() {
         <Card>
           <CardContent className="pt-6">
             <p className="text-sm text-muted-foreground">Monthly Income</p>
-            {incomeConfig ? (
-              <>
-                <p className="text-2xl font-bold text-green-500">
-                  {incomeConfig.monthlyIncome.toLocaleString()} <span className="text-sm font-normal">AED</span>
-                </p>
-                <button 
-                  className="text-xs text-muted-foreground hover:text-primary mt-1"
-                  onClick={() => setShowIncomeInput(true)}
-                >
-                  Edit
-                </button>
-              </>
-            ) : showIncomeInput ? (
+            {showIncomeInput ? (
               <div className="space-y-2 mt-2">
                 <Input
                   type="number"
@@ -137,9 +125,28 @@ export function AnalyticsDashboard() {
                 />
                 <div className="flex gap-1">
                   <Button size="sm" onClick={handleSaveIncome}>Save</Button>
-                  <Button size="sm" variant="ghost" onClick={() => setShowIncomeInput(false)}>Cancel</Button>
+                  <Button size="sm" variant="ghost" onClick={() => {
+                    setShowIncomeInput(false);
+                    // Reset to original value if canceling
+                    setIncomeValue(incomeConfig?.monthlyIncome?.toString() || "");
+                  }}>Cancel</Button>
                 </div>
               </div>
+            ) : incomeConfig ? (
+              <>
+                <p className="text-2xl font-bold text-green-500">
+                  {incomeConfig.monthlyIncome.toLocaleString()} <span className="text-sm font-normal">AED</span>
+                </p>
+                <button 
+                  className="text-xs text-muted-foreground hover:text-primary mt-1"
+                  onClick={() => {
+                    setIncomeValue(incomeConfig.monthlyIncome.toString());
+                    setShowIncomeInput(true);
+                  }}
+                >
+                  Edit
+                </button>
+              </>
             ) : (
               <>
                 <p className="text-2xl font-bold text-muted-foreground">—</p>

@@ -223,28 +223,28 @@ export function ExportTab() {
           <Card>
             <CardContent className="pt-6">
               <p className="text-sm text-muted-foreground">Total Reimbursable</p>
-              <p className="text-2xl font-bold">{summary.grandTotal.toFixed(2)} AED</p>
+              <p className="text-2xl font-bold">{summary.grandTotal.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} AED</p>
               <p className="text-xs text-muted-foreground">{summary.totalCount} items</p>
             </CardContent>
           </Card>
           <Card>
             <CardContent className="pt-6">
               <p className="text-sm text-muted-foreground">Draft</p>
-              <p className="text-2xl font-bold text-yellow-500">{summary.byStatus.draft.total.toFixed(2)} AED</p>
+              <p className="text-2xl font-bold text-yellow-500">{summary.byStatus.draft.total.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} AED</p>
               <p className="text-xs text-muted-foreground">{summary.byStatus.draft.count} items</p>
             </CardContent>
           </Card>
           <Card>
             <CardContent className="pt-6">
               <p className="text-sm text-muted-foreground">Submitted</p>
-              <p className="text-2xl font-bold text-blue-500">{summary.byStatus.submitted.total.toFixed(2)} AED</p>
+              <p className="text-2xl font-bold text-blue-500">{summary.byStatus.submitted.total.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} AED</p>
               <p className="text-xs text-muted-foreground">{summary.byStatus.submitted.count} items</p>
             </CardContent>
           </Card>
           <Card>
             <CardContent className="pt-6">
               <p className="text-sm text-muted-foreground">Paid</p>
-              <p className="text-2xl font-bold text-green-500">{summary.byStatus.paid.total.toFixed(2)} AED</p>
+              <p className="text-2xl font-bold text-green-500">{summary.byStatus.paid.total.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} AED</p>
               <p className="text-xs text-muted-foreground">{summary.byStatus.paid.count} items</p>
             </CardContent>
           </Card>

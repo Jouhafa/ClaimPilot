@@ -372,7 +372,7 @@ function AppContent() {
       case "import":
         return <ImportTab onImportSuccess={() => handleNavigate("review")} />;
       case "review":
-        return <ReviewTab />;
+        return <ReviewTab onNavigate={handleNavigate} />;
       case "transactions":
         return <TransactionsTab />;
       case "reimbursements":

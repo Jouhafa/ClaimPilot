@@ -4,14 +4,19 @@ import { useState, useMemo, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { useApp } from "@/lib/context";
 import { detectRecurringTransactions, getRecurringSummary, getUpcomingRecurring } from "@/lib/recurringDetector";
 import { CATEGORY_CONFIG } from "@/lib/types";
-import type { RecurringTransaction } from "@/lib/types";
+import type { RecurringTransaction, TransactionCategory, Transaction } from "@/lib/types";
+import { v4 as uuidv4 } from "uuid";
 
 export function RecurringTab() {
-  const { transactions, recurring, setRecurring, updateRecurring, deleteRecurring } = useApp();
+  const { transactions, recurring, setRecurring, updateRecurring, deleteRecurring, addRecurring } = useApp();
   const [isDetecting, setIsDetecting] = useState(false);
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [showLinkedTransactions, setShowLinkedTransactions] = useState<string | null>(null);
 
   // Auto-detect recurring on mount if empty
   useEffect(() => {
@@ -91,31 +96,39 @@ export function RecurringTab() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between flex-wrap gap-4">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Recurring & Subscriptions</h1>
           <p className="text-muted-foreground mt-2">
             Track your recurring bills and subscriptions
           </p>
         </div>
-        <Button onClick={handleDetectRecurring} disabled={isDetecting}>
-          {isDetecting ? (
-            <>
-              <svg className="w-4 h-4 mr-2 animate-spin" fill="none" viewBox="0 0 24 24">
-                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-              </svg>
-              Detecting...
-            </>
-          ) : (
-            <>
-              <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-              </svg>
-              Re-detect
-            </>
-          )}
-        </Button>
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={() => setShowAddModal(true)}>
+            <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+            </svg>
+            Add Subscription
+          </Button>
+          <Button onClick={handleDetectRecurring} disabled={isDetecting}>
+            {isDetecting ? (
+              <>
+                <svg className="w-4 h-4 mr-2 animate-spin" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                </svg>
+                Detecting...
+              </>
+            ) : (
+              <>
+                <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                </svg>
+                Re-detect
+              </>
+            )}
+          </Button>
+        </div>
       </div>
 
       {/* Summary Cards */}
@@ -123,7 +136,7 @@ export function RecurringTab() {
         <Card>
           <CardContent className="pt-6">
             <p className="text-sm text-muted-foreground">Monthly Total</p>
-            <p className="text-2xl font-bold">{summary.totalMonthly.toFixed(0)} AED</p>
+            <p className="text-2xl font-bold">{summary.totalMonthly.toLocaleString("en-US", { maximumFractionDigits: 0 })} AED</p>
             <p className="text-xs text-muted-foreground mt-1">
               {summary.activeCount} active subscriptions
             </p>
@@ -132,7 +145,7 @@ export function RecurringTab() {
         <Card>
           <CardContent className="pt-6">
             <p className="text-sm text-muted-foreground">Yearly Projection</p>
-            <p className="text-2xl font-bold">{summary.totalYearly.toFixed(0)} AED</p>
+            <p className="text-2xl font-bold">{summary.totalYearly.toLocaleString("en-US", { maximumFractionDigits: 0 })} AED</p>
             <p className="text-xs text-muted-foreground mt-1">
               Based on current recurring
             </p>
@@ -178,7 +191,7 @@ export function RecurringTab() {
                     </div>
                   </div>
                   <div className="text-right">
-                    <p className="font-mono font-semibold">{item.averageAmount.toFixed(0)} AED</p>
+                    <p className="font-mono font-semibold">{item.averageAmount.toLocaleString("en-US", { maximumFractionDigits: 0 })} AED</p>
                     <p className={`text-xs ${daysUntil <= 7 ? "text-yellow-500 font-medium" : "text-muted-foreground"}`}>
                       {daysUntil === 0 ? "Today" : daysUntil === 1 ? "Tomorrow" : `In ${daysUntil} days`}
                     </p>
@@ -239,12 +252,23 @@ export function RecurringTab() {
                   </div>
                   <div className="flex items-center gap-4">
                     <div className="text-right">
-                      <p className="font-mono font-semibold">{item.averageAmount.toFixed(0)} AED</p>
+                      <p className="font-mono font-semibold">{item.averageAmount.toLocaleString("en-US", { maximumFractionDigits: 0 })} AED</p>
                       <p className="text-xs text-muted-foreground">
                         {CATEGORY_CONFIG[item.category]?.label}
                       </p>
                     </div>
                     <div className="flex gap-1">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setShowLinkedTransactions(item.id)}
+                        title="View transactions"
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                        </svg>
+                      </Button>
                       {!item.isUserConfirmed && (
                         <Button
                           variant="ghost"
@@ -312,13 +336,286 @@ export function RecurringTab() {
                     <span className="text-sm">{CATEGORY_CONFIG[category]?.label || category}</span>
                     <Badge variant="secondary" className="text-xs">{count}</Badge>
                   </div>
-                  <span className="font-mono text-sm">{monthly.toFixed(0)} AED/mo</span>
+                  <span className="font-mono text-sm">{monthly.toLocaleString("en-US", { maximumFractionDigits: 0 })} AED/mo</span>
                 </div>
               ))}
             </div>
           </CardContent>
         </Card>
       )}
+
+      {/* Add Subscription Modal */}
+      {showAddModal && (
+        <AddSubscriptionModal 
+          transactions={transactions}
+          onAdd={addRecurring}
+          onClose={() => setShowAddModal(false)}
+        />
+      )}
+
+      {/* Linked Transactions Modal */}
+      {showLinkedTransactions && (
+        <LinkedTransactionsModal
+          subscription={recurring.find(r => r.id === showLinkedTransactions)!}
+          transactions={transactions}
+          onClose={() => setShowLinkedTransactions(null)}
+        />
+      )}
+    </div>
+  );
+}
+
+// Add Subscription Modal Component
+function AddSubscriptionModal({
+  transactions,
+  onAdd,
+  onClose,
+}: {
+  transactions: Transaction[];
+  onAdd: (item: RecurringTransaction) => Promise<void>;
+  onClose: () => void;
+}) {
+  const [name, setName] = useState("");
+  const [amount, setAmount] = useState("");
+  const [frequency, setFrequency] = useState<"weekly" | "monthly" | "quarterly" | "yearly">("monthly");
+  const [category, setCategory] = useState<TransactionCategory>("subscriptions");
+  const [searchTerm, setSearchTerm] = useState("");
+  const [selectedTransactions, setSelectedTransactions] = useState<string[]>([]);
+
+  // Search for matching transactions
+  const matchingTransactions = useMemo(() => {
+    if (!searchTerm && !name) return [];
+    const term = (searchTerm || name).toLowerCase();
+    return transactions
+      .filter(tx => 
+        tx.amount < 0 && 
+        !tx.parentId &&
+        (tx.merchant.toLowerCase().includes(term) || 
+         tx.description.toLowerCase().includes(term))
+      )
+      .slice(0, 10);
+  }, [transactions, searchTerm, name]);
+
+  // Auto-fill from selected transactions
+  useEffect(() => {
+    if (selectedTransactions.length > 0) {
+      const selected = transactions.filter(tx => selectedTransactions.includes(tx.id));
+      const avgAmount = selected.reduce((sum, tx) => sum + Math.abs(tx.amount), 0) / selected.length;
+      if (!amount) setAmount(avgAmount.toFixed(2));
+      if (!name && selected.length > 0) setName(selected[0].merchant);
+    }
+  }, [selectedTransactions, transactions, amount, name]);
+
+  const handleSubmit = async () => {
+    if (!name || !amount) return;
+
+    const nextDate = new Date();
+    switch (frequency) {
+      case "weekly":
+        nextDate.setDate(nextDate.getDate() + 7);
+        break;
+      case "monthly":
+        nextDate.setMonth(nextDate.getMonth() + 1);
+        break;
+      case "quarterly":
+        nextDate.setMonth(nextDate.getMonth() + 3);
+        break;
+      case "yearly":
+        nextDate.setFullYear(nextDate.getFullYear() + 1);
+        break;
+    }
+
+    const newSubscription: RecurringTransaction = {
+      id: uuidv4(),
+      merchantPattern: name.toLowerCase(),
+      normalizedMerchant: name,
+      category,
+      averageAmount: parseFloat(amount),
+      frequency,
+      lastOccurrence: new Date().toISOString().split("T")[0],
+      nextExpected: nextDate.toISOString().split("T")[0],
+      occurrences: selectedTransactions.length || 1,
+      transactionIds: selectedTransactions,
+      isActive: true,
+      isUserConfirmed: true,
+    };
+
+    await onAdd(newSubscription);
+    onClose();
+  };
+
+  const toggleTransaction = (id: string) => {
+    setSelectedTransactions(prev => 
+      prev.includes(id) ? prev.filter(t => t !== id) : [...prev, id]
+    );
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+      <Card className="w-full max-w-lg mx-4 max-h-[90vh] overflow-y-auto">
+        <CardHeader>
+          <CardTitle>Add Subscription</CardTitle>
+          <CardDescription>Manually add a recurring payment and link transactions</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="name">Subscription Name</Label>
+            <Input
+              id="name"
+              placeholder="e.g., Netflix, Spotify"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+            />
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="amount">Amount (AED)</Label>
+              <Input
+                id="amount"
+                type="number"
+                placeholder="0.00"
+                value={amount}
+                onChange={(e) => setAmount(e.target.value)}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="frequency">Frequency</Label>
+              <select
+                id="frequency"
+                value={frequency}
+                onChange={(e) => setFrequency(e.target.value as typeof frequency)}
+                className="w-full h-10 rounded-md border bg-background px-3 py-2 text-sm"
+              >
+                <option value="weekly">Weekly</option>
+                <option value="monthly">Monthly</option>
+                <option value="quarterly">Quarterly</option>
+                <option value="yearly">Yearly</option>
+              </select>
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="category">Category</Label>
+            <select
+              id="category"
+              value={category}
+              onChange={(e) => setCategory(e.target.value as TransactionCategory)}
+              className="w-full h-10 rounded-md border bg-background px-3 py-2 text-sm"
+            >
+              {Object.entries(CATEGORY_CONFIG).map(([key, config]) => (
+                <option key={key} value={key}>{config.label}</option>
+              ))}
+            </select>
+          </div>
+
+          {/* Link Transactions */}
+          <div className="space-y-2">
+            <Label>Link Transactions (optional)</Label>
+            <Input
+              placeholder="Search transactions..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
+            {matchingTransactions.length > 0 && (
+              <div className="border rounded-lg max-h-48 overflow-y-auto">
+                {matchingTransactions.map((tx) => (
+                  <div
+                    key={tx.id}
+                    className={`flex items-center justify-between p-2 hover:bg-muted/50 cursor-pointer ${
+                      selectedTransactions.includes(tx.id) ? "bg-primary/10" : ""
+                    }`}
+                    onClick={() => toggleTransaction(tx.id)}
+                  >
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="checkbox"
+                        checked={selectedTransactions.includes(tx.id)}
+                        onChange={() => {}}
+                        className="rounded"
+                      />
+                      <div>
+                        <p className="text-sm font-medium">{tx.merchant}</p>
+                        <p className="text-xs text-muted-foreground">{tx.date}</p>
+                      </div>
+                    </div>
+                    <span className="font-mono text-sm">{Math.abs(tx.amount).toLocaleString("en-US", { minimumFractionDigits: 2 })} AED</span>
+                  </div>
+                ))}
+              </div>
+            )}
+            {selectedTransactions.length > 0 && (
+              <p className="text-xs text-muted-foreground">
+                {selectedTransactions.length} transaction(s) selected
+              </p>
+            )}
+          </div>
+
+          <div className="flex justify-end gap-2 pt-4">
+            <Button variant="outline" onClick={onClose}>Cancel</Button>
+            <Button onClick={handleSubmit} disabled={!name || !amount}>
+              Add Subscription
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+// Linked Transactions Modal
+function LinkedTransactionsModal({
+  subscription,
+  transactions,
+  onClose,
+}: {
+  subscription: RecurringTransaction;
+  transactions: Transaction[];
+  onClose: () => void;
+}) {
+  const linkedTransactions = useMemo(() => {
+    return transactions.filter(tx => 
+      subscription.transactionIds.includes(tx.id) ||
+      tx.merchant.toLowerCase().includes(subscription.merchantPattern.toLowerCase())
+    ).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+  }, [subscription, transactions]);
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+      <Card className="w-full max-w-lg mx-4 max-h-[90vh] overflow-y-auto">
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle>{subscription.normalizedMerchant}</CardTitle>
+              <CardDescription>{linkedTransactions.length} related transactions</CardDescription>
+            </div>
+            <Button variant="ghost" size="sm" onClick={onClose}>
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </Button>
+          </div>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-2">
+            {linkedTransactions.map((tx) => (
+              <div
+                key={tx.id}
+                className="flex items-center justify-between p-3 rounded-lg border"
+              >
+                <div>
+                  <p className="font-medium">{tx.merchant}</p>
+                  <p className="text-sm text-muted-foreground">{tx.date}</p>
+                </div>
+                <span className="font-mono">{Math.abs(tx.amount).toLocaleString("en-US", { minimumFractionDigits: 2 })} AED</span>
+              </div>
+            ))}
+            {linkedTransactions.length === 0 && (
+              <p className="text-center text-muted-foreground py-4">No linked transactions found</p>
+            )}
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
 }

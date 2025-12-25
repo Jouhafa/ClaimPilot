@@ -113,32 +113,36 @@ function analyzePattern(sortedTransactions: Transaction[]): PatternAnalysis {
 
   const averageInterval = intervals.reduce((sum, i) => sum + i, 0) / intervals.length;
 
-  // Check amount consistency
+  // Check amount consistency - relaxed to 30% variance
   const amounts = sortedTransactions.map((tx) => Math.abs(tx.amount));
   const avgAmount = amounts.reduce((sum, a) => sum + a, 0) / amounts.length;
   const amountVariance =
     amounts.reduce((sum, a) => sum + Math.pow(a - avgAmount, 2), 0) / amounts.length;
   const amountStdDev = Math.sqrt(amountVariance);
-  const amountConsistent = amountStdDev / avgAmount < 0.15; // 15% variance threshold
+  const amountConsistent = amountStdDev / avgAmount < 0.30; // Relaxed to 30% variance threshold
 
-  // Determine frequency
+  // Determine frequency - with more relaxed interval ranges
   let frequency: "weekly" | "monthly" | "quarterly" | "yearly" = "monthly";
   let isRecurring = false;
   let confidence: "high" | "medium" | "low" = "low";
 
-  if (averageInterval >= 5 && averageInterval <= 10) {
+  if (averageInterval >= 5 && averageInterval <= 12) {
+    // Relaxed weekly range (was 5-10)
     frequency = "weekly";
-    isRecurring = intervals.length >= 3 && amountConsistent;
-    confidence = intervals.length >= 4 ? "high" : "medium";
-  } else if (averageInterval >= 25 && averageInterval <= 35) {
+    isRecurring = intervals.length >= 2 && amountConsistent; // Relaxed from 3 to 2
+    confidence = intervals.length >= 3 ? "high" : "medium";
+  } else if (averageInterval >= 20 && averageInterval <= 45) {
+    // Relaxed monthly range (was 25-35)
     frequency = "monthly";
-    isRecurring = intervals.length >= 1 && amountConsistent;
+    isRecurring = amountConsistent; // Removed interval count requirement
     confidence = intervals.length >= 2 ? "high" : "medium";
-  } else if (averageInterval >= 85 && averageInterval <= 100) {
+  } else if (averageInterval >= 75 && averageInterval <= 110) {
+    // Relaxed quarterly range (was 85-100)
     frequency = "quarterly";
-    isRecurring = intervals.length >= 1;
+    isRecurring = true; // Always treat as recurring if pattern matches
     confidence = intervals.length >= 2 ? "high" : "medium";
-  } else if (averageInterval >= 350 && averageInterval <= 380) {
+  } else if (averageInterval >= 330 && averageInterval <= 400) {
+    // Relaxed yearly range (was 350-380)
     frequency = "yearly";
     isRecurring = true;
     confidence = "medium";
@@ -156,10 +160,26 @@ function analyzePattern(sortedTransactions: Transaction[]): PatternAnalysis {
     firstTx.category &&
     knownSubscriptionCategories.includes(firstTx.category)
   ) {
-    if (!isRecurring && averageInterval >= 25 && averageInterval <= 40) {
+    if (!isRecurring && averageInterval >= 20 && averageInterval <= 50) {
       isRecurring = true;
       frequency = "monthly";
       confidence = "medium";
+    }
+  }
+
+  // Fallback: If we see 2+ transactions from same merchant, consider it potentially recurring
+  if (!isRecurring && sortedTransactions.length >= 2) {
+    // Check if amounts are roughly similar (within 50%)
+    const maxAmount = Math.max(...amounts);
+    const minAmount = Math.min(...amounts);
+    if (minAmount / maxAmount > 0.5) {
+      isRecurring = true;
+      // Guess frequency based on average interval
+      if (averageInterval <= 15) frequency = "weekly";
+      else if (averageInterval <= 50) frequency = "monthly";
+      else if (averageInterval <= 120) frequency = "quarterly";
+      else frequency = "yearly";
+      confidence = "low";
     }
   }
 

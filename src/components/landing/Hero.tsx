@@ -65,7 +65,7 @@ export function Hero() {
         <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
           <Link href="/app">
             <Button size="lg" className="h-14 px-8 text-lg font-semibold animate-pulse-glow">
-              Try Free — Import Demo Data
+              Try Free (Demo Data)
               <svg className="ml-2 w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
               </svg>

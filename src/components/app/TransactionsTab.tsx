@@ -15,7 +15,7 @@ import { findDuplicates, calculateCurrencyTotals } from "@/lib/types";
 import type { Transaction, TransactionTag } from "@/lib/types";
 
 export function TransactionsTab() {
-  const { transactions, updateTransaction, isLoading, rules, addRule, splitTransaction } = useApp();
+  const { transactions, updateTransaction, deleteTransaction, isLoading, rules, addRule, splitTransaction } = useApp();
   const [search, setSearch] = useState("");
   const [tagFilter, setTagFilter] = useState<TransactionTag | "all">("all");
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -26,6 +26,9 @@ export function TransactionsTab() {
   const [focusedIndex, setFocusedIndex] = useState<number>(-1);
   const [editingMerchant, setEditingMerchant] = useState<string | null>(null);
   const [editMerchantValue, setEditMerchantValue] = useState("");
+  const [editingTransaction, setEditingTransaction] = useState<string | null>(null);
+  const [editValues, setEditValues] = useState<{date?: string; amount?: string; description?: string}>({});
+  const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
   const tableRef = useRef<HTMLDivElement>(null);
   const searchRef = useRef<HTMLInputElement>(null);
 
@@ -217,6 +220,65 @@ export function TransactionsTab() {
     setEditMerchantValue("");
   };
 
+  // Start editing a transaction
+  const startEditing = (tx: Transaction) => {
+    setEditingTransaction(tx.id);
+    setEditValues({
+      date: tx.date,
+      amount: Math.abs(tx.amount).toString(),
+      description: tx.description,
+    });
+  };
+
+  // Save edited transaction
+  const saveEditedTransaction = async () => {
+    if (!editingTransaction) return;
+    
+    const tx = transactions.find(t => t.id === editingTransaction);
+    if (!tx) return;
+
+    const updates: Partial<Transaction> = {};
+    
+    if (editValues.date && editValues.date !== tx.date) {
+      updates.date = editValues.date;
+    }
+    if (editValues.amount) {
+      const newAmount = parseFloat(editValues.amount);
+      if (!isNaN(newAmount)) {
+        // Preserve the sign (expense = negative)
+        updates.amount = tx.amount < 0 ? -Math.abs(newAmount) : Math.abs(newAmount);
+      }
+    }
+    if (editValues.description !== undefined && editValues.description !== tx.description) {
+      updates.description = editValues.description;
+    }
+
+    if (Object.keys(updates).length > 0) {
+      await updateTransaction(editingTransaction, updates);
+    }
+    
+    setEditingTransaction(null);
+    setEditValues({});
+  };
+
+  // Cancel editing
+  const cancelEditing = () => {
+    setEditingTransaction(null);
+    setEditValues({});
+  };
+
+  // Delete transaction with confirmation
+  const handleDeleteTransaction = async (id: string) => {
+    if (deleteConfirm === id) {
+      await deleteTransaction(id);
+      setDeleteConfirm(null);
+    } else {
+      setDeleteConfirm(id);
+      // Auto-cancel confirmation after 3 seconds
+      setTimeout(() => setDeleteConfirm(prev => prev === id ? null : prev), 3000);
+    }
+  };
+
   const getTagBadge = (tag: TransactionTag) => {
     switch (tag) {
       case "reimbursable":
@@ -231,7 +293,7 @@ export function TransactionsTab() {
   };
 
   const formatAmount = (amount: number) => {
-    const formatted = Math.abs(amount).toFixed(2);
+    const formatted = Math.abs(amount).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
     return amount >= 0 ? `+${formatted}` : `-${formatted}`;
   };
 
@@ -481,9 +543,41 @@ export function TransactionsTab() {
                             disabled={hasSplits}
                           />
                         </td>
-                        <td className="px-4 py-3 text-sm text-muted-foreground">{tx.date}</td>
+                        <td className="px-4 py-3 text-sm text-muted-foreground">
+                          {editingTransaction === tx.id ? (
+                            <Input
+                              type="date"
+                              value={editValues.date || tx.date}
+                              onChange={(e) => setEditValues(prev => ({ ...prev, date: e.target.value }))}
+                              className="h-7 text-sm w-32"
+                              onClick={(e) => e.stopPropagation()}
+                            />
+                          ) : (
+                            tx.date
+                          )}
+                        </td>
                         <td className="px-4 py-3">
-                          {editingMerchant === tx.id ? (
+                          {editingTransaction === tx.id ? (
+                            <div className="space-y-1">
+                              <Input
+                                value={editingMerchant === tx.id ? editMerchantValue : tx.merchant}
+                                onChange={(e) => {
+                                  setEditingMerchant(tx.id);
+                                  setEditMerchantValue(e.target.value);
+                                }}
+                                className="h-7 text-sm"
+                                placeholder="Merchant"
+                                onClick={(e) => e.stopPropagation()}
+                              />
+                              <Input
+                                value={editValues.description ?? tx.description}
+                                onChange={(e) => setEditValues(prev => ({ ...prev, description: e.target.value }))}
+                                className="h-7 text-sm"
+                                placeholder="Description"
+                                onClick={(e) => e.stopPropagation()}
+                              />
+                            </div>
+                          ) : editingMerchant === tx.id ? (
                             <Input
                               value={editMerchantValue}
                               onChange={(e) => setEditMerchantValue(e.target.value)}
@@ -514,7 +608,18 @@ export function TransactionsTab() {
                           )}
                         </td>
                         <td className={`px-4 py-3 text-sm text-right font-mono ${tx.amount >= 0 ? "text-green-500" : "text-foreground"} ${hasSplits ? "line-through text-muted-foreground" : ""}`}>
-                          {formatAmount(tx.amount)} {tx.currency}
+                          {editingTransaction === tx.id ? (
+                            <Input
+                              type="number"
+                              step="0.01"
+                              value={editValues.amount || Math.abs(tx.amount).toString()}
+                              onChange={(e) => setEditValues(prev => ({ ...prev, amount: e.target.value }))}
+                              className="h-7 text-sm w-24 text-right"
+                              onClick={(e) => e.stopPropagation()}
+                            />
+                          ) : (
+                            <>{formatAmount(tx.amount)} {tx.currency}</>
+                          )}
                         </td>
                         <td className="px-4 py-3 text-center">
                           {hasSplits ? (
@@ -525,33 +630,94 @@ export function TransactionsTab() {
                         </td>
                         <td className="px-4 py-3 text-right">
                           <div className="flex items-center justify-end gap-1">
-                            {!hasSplits && !tx.isSplit && (
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  setSplitModalTx(tx);
-                                }}
-                                title="Split transaction"
-                              >
-                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
-                                </svg>
-                              </Button>
-                            )}
-                            {!hasSplits && (
-                              <select
-                                value={tx.tag || ""}
-                                onChange={(e) => handleTagChange(tx.id, (e.target.value || null) as TransactionTag)}
-                                className="text-sm bg-transparent border rounded px-2 py-1"
-                                onClick={(e) => e.stopPropagation()}
-                              >
-                                <option value="">Untagged</option>
-                                <option value="reimbursable">Reimbursable</option>
-                                <option value="personal">Personal</option>
-                                <option value="ignore">Ignore</option>
-                              </select>
+                            {editingTransaction === tx.id ? (
+                              <>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    saveEditedTransaction();
+                                  }}
+                                  title="Save changes"
+                                  className="text-green-500 hover:text-green-600"
+                                >
+                                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                                  </svg>
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    cancelEditing();
+                                  }}
+                                  title="Cancel"
+                                >
+                                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                  </svg>
+                                </Button>
+                              </>
+                            ) : (
+                              <>
+                                {!hasSplits && !tx.isSplit && (
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setSplitModalTx(tx);
+                                    }}
+                                    title="Split transaction"
+                                  >
+                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
+                                    </svg>
+                                  </Button>
+                                )}
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    startEditing(tx);
+                                  }}
+                                  title="Edit transaction"
+                                >
+                                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                                  </svg>
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleDeleteTransaction(tx.id);
+                                  }}
+                                  title={deleteConfirm === tx.id ? "Click again to confirm delete" : "Delete transaction"}
+                                  className={deleteConfirm === tx.id ? "text-destructive bg-destructive/10" : "text-muted-foreground hover:text-destructive"}
+                                >
+                                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                  </svg>
+                                </Button>
+                                {!hasSplits && (
+                                  <select
+                                    value={tx.tag || ""}
+                                    onChange={(e) => handleTagChange(tx.id, (e.target.value || null) as TransactionTag)}
+                                    className="text-sm bg-transparent border rounded px-2 py-1"
+                                    onClick={(e) => e.stopPropagation()}
+                                  >
+                                    <option value="">Untagged</option>
+                                    <option value="reimbursable">Reimbursable</option>
+                                    <option value="personal">Personal</option>
+                                    <option value="ignore">Ignore</option>
+                                  </select>
+                                )}
+                              </>
                             )}
                           </div>
                         </td>

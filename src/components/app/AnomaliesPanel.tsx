@@ -1,8 +1,9 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { useApp } from "@/lib/context";
 import { CATEGORY_CONFIG } from "@/lib/types";
 import type { Transaction, TransactionCategory } from "@/lib/types";
@@ -20,6 +21,7 @@ interface Anomaly {
 
 export function AnomaliesPanel() {
   const { transactions, recurring } = useApp();
+  const [showAll, setShowAll] = useState(false);
 
   const anomalies = useMemo(() => {
     const results: Anomaly[] = [];
@@ -260,7 +262,7 @@ export function AnomaliesPanel() {
       </CardHeader>
       <CardContent>
         <div className="space-y-3">
-          {anomalies.slice(0, 5).map((anomaly) => (
+          {(showAll ? anomalies : anomalies.slice(0, 5)).map((anomaly) => (
             <div
               key={anomaly.id}
               className={`flex items-start gap-3 p-3 rounded-lg border ${getSeverityColor(anomaly.severity)}`}
@@ -276,16 +278,35 @@ export function AnomaliesPanel() {
                 <div className="text-right">
                   <p className="font-mono font-semibold">
                     {anomaly.type === "high_spend" || anomaly.type === "price_increase" ? "+" : ""}
-                    {anomaly.amount.toFixed(0)} AED
+                    {anomaly.amount.toLocaleString("en-US", { maximumFractionDigits: 0 })} AED
                   </p>
                 </div>
               )}
             </div>
           ))}
           {anomalies.length > 5 && (
-            <p className="text-sm text-muted-foreground text-center pt-2">
-              +{anomalies.length - 5} more alerts
-            </p>
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              className="w-full text-muted-foreground hover:text-foreground"
+              onClick={() => setShowAll(!showAll)}
+            >
+              {showAll ? (
+                <>
+                  <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
+                  </svg>
+                  Show less
+                </>
+              ) : (
+                <>
+                  <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                  </svg>
+                  Show {anomalies.length - 5} more alerts
+                </>
+              )}
+            </Button>
           )}
         </div>
       </CardContent>
