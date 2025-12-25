@@ -42,3 +42,4 @@ next-env.d.ts
 
 # test documents (sensitive bank statements)
 /test-docs
+/docs

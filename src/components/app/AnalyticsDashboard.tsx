@@ -19,7 +19,11 @@ import { SpendingSummaryExport } from "./SpendingSummaryExport";
 import { SmartSuggestions } from "./SmartSuggestions";
 import { MonthlyNarrative } from "./MonthlyNarrative";
 
-export function AnalyticsDashboard() {
+interface AnalyticsDashboardProps {
+  onNavigate?: (tab: string) => void;
+}
+
+export function AnalyticsDashboard({ onNavigate }: AnalyticsDashboardProps = {}) {
   const { transactions, incomeConfig, setIncomeConfig } = useApp();
   const [showIncomeInput, setShowIncomeInput] = useState(false);
   const [incomeValue, setIncomeValue] = useState(incomeConfig?.monthlyIncome?.toString() || "");
@@ -90,8 +94,19 @@ export function AnalyticsDashboard() {
 
   return (
     <div className="space-y-6">
-      {/* Export Button */}
-      <div className="flex justify-end">
+      {/* Export Button + Coach Chip */}
+      <div className="flex justify-between items-center">
+        {onNavigate && (
+          <button
+            onClick={() => onNavigate("playbook")}
+            className="text-xs px-2 py-1 rounded-md border border-primary/20 bg-primary/5 hover:bg-primary/10 text-primary transition-colors flex items-center gap-1"
+          >
+            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+            </svg>
+            Coach
+          </button>
+        )}
         <Button variant="outline" onClick={() => setShowSummaryExport(true)}>
           <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />

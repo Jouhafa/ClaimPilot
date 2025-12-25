@@ -13,7 +13,11 @@ import type { Bucket, TransactionCategory } from "@/lib/types";
 import { CATEGORY_CONFIG } from "@/lib/types";
 import { calculateBucketSpending } from "@/lib/goalEngine";
 
-export function BucketsTab() {
+interface BucketsTabProps {
+  onNavigate?: (tab: string) => void;
+}
+
+export function BucketsTab({ onNavigate }: BucketsTabProps = {}) {
   const { buckets, addBucket, updateBucket, deleteBucket, transactions, incomeConfig } = useApp();
   const [showAddBucket, setShowAddBucket] = useState(false);
   const [editingBucket, setEditingBucket] = useState<Bucket | null>(null);
@@ -98,11 +102,24 @@ export function BucketsTab() {
     <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">Budget Buckets</h1>
-          <p className="text-muted-foreground mt-2">
-            Organize spending into Needs, Wants, and Goals
-          </p>
+        <div className="flex items-center gap-3">
+          {onNavigate && (
+            <button
+              onClick={() => onNavigate("playbook")}
+              className="text-xs px-2 py-1 rounded-md border border-primary/20 bg-primary/5 hover:bg-primary/10 text-primary transition-colors flex items-center gap-1 shrink-0"
+            >
+              <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+              </svg>
+              Coach
+            </button>
+          )}
+          <div>
+            <h1 className="text-3xl font-bold tracking-tight">Budget Buckets</h1>
+            <p className="text-muted-foreground mt-2">
+              Organize spending into Needs, Wants, and Goals
+            </p>
+          </div>
         </div>
         <Button onClick={() => setShowAddBucket(true)}>
           <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">

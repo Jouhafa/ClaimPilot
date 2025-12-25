@@ -20,6 +20,7 @@ import { GoalsTab } from "./GoalsTab";
 import { BucketsTab } from "./BucketsTab";
 import { ActionPlanTab } from "./ActionPlanTab";
 import { InvestmentPolicyTab } from "./InvestmentPolicyTab";
+import { CoachTab } from "./CoachTab";
 import { PaywallGate } from "./PaywallGate";
 import { DevTierTester } from "./DevTierTester";
 import { AppTour } from "./AppTour";
@@ -28,7 +29,7 @@ import { HomeDashboard } from "./HomeDashboard";
 import { getAutoTagStats } from "@/lib/autoTagger";
 import type { LicenseTier } from "@/lib/types";
 
-type TabId = "home" | "import" | "review" | "transactions" | "reimbursements" | "recurring" | "analytics" | "goals" | "buckets" | "action-plan" | "investments" | "card-safety" | "export";
+type TabId = "home" | "import" | "review" | "transactions" | "reimbursements" | "recurring" | "analytics" | "goals" | "buckets" | "action-plan" | "investments" | "card-safety" | "export" | "playbook";
 
 interface NavItem {
   id: TabId;
@@ -349,6 +350,21 @@ function AppContent() {
       ],
     },
     {
+      label: "LEARN",
+      items: [
+        {
+          id: "playbook",
+          label: "Coach",
+          unlockCondition: "always",
+          icon: (
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+            </svg>
+          ),
+        },
+      ],
+    },
+    {
       label: "",
       items: [
         {
@@ -397,7 +413,7 @@ function AppContent() {
                 Full visibility into where your money goes
               </p>
             </div>
-            <AnalyticsDashboard />
+            <AnalyticsDashboard onNavigate={handleNavigate} />
           </div>
         );
       case "goals":
@@ -408,7 +424,7 @@ function AppContent() {
             title="Financial Goals"
             description="Set goals, track progress, and get feasibility calculations"
           >
-            <GoalsTab />
+            <GoalsTab onNavigate={handleNavigate} />
           </PaywallGate>
         );
       case "buckets":
@@ -419,7 +435,7 @@ function AppContent() {
             title="Budget Buckets"
             description="Organize your money into Needs, Wants, and Goals"
           >
-            <BucketsTab />
+            <BucketsTab onNavigate={handleNavigate} />
           </PaywallGate>
         );
       case "action-plan":
@@ -457,6 +473,8 @@ function AppContent() {
         );
       case "export":
         return <ExportTab />;
+      case "playbook":
+        return <CoachTab onNavigate={handleNavigate} />;
       default:
         return <HomeDashboard onNavigate={handleNavigate} />;
     }
@@ -621,8 +639,9 @@ function AppContent() {
 
       {/* Main content */}
       <main className="flex-1 overflow-auto bg-background md:ml-0">
-        {/* Header with month selector */}
-        <header className="sticky top-0 z-10 bg-background/80 backdrop-blur-sm border-b border-border px-4 md:px-8 py-3">
+        {/* Header with month selector - hidden for Coach */}
+        {activeTab !== "playbook" && (
+          <header className="sticky top-0 z-10 bg-background/80 backdrop-blur-sm border-b border-border px-4 md:px-8 py-3">
           <div className="flex items-center justify-between max-w-6xl mx-auto">
             <div className="flex items-center gap-3">
               {/* Hamburger menu button - mobile only */}
@@ -646,9 +665,27 @@ function AppContent() {
             </div>
           </div>
         </header>
-        <div className="p-4 md:p-8 max-w-6xl mx-auto">
-          {renderContent()}
-        </div>
+        )}
+        {/* Coach page - full screen with sidebar toggle */}
+        {activeTab === "playbook" ? (
+          <div className="relative">
+            {/* Sidebar toggle button for Coach page */}
+            <button
+              onClick={() => setSidebarOpen(!sidebarOpen)}
+              className="fixed top-4 left-4 z-50 p-2 rounded-lg bg-background/80 backdrop-blur-sm border border-border hover:bg-muted transition-colors shadow-lg"
+              aria-label="Toggle sidebar"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+              </svg>
+            </button>
+            {renderContent()}
+          </div>
+        ) : (
+          <div className="p-4 md:p-8 max-w-6xl mx-auto">
+            {renderContent()}
+          </div>
+        )}
       </main>
       
       {/* Dev tier tester - only shows with ?dev=1 */}

@@ -4,6 +4,7 @@ export { Outcomes } from "./Outcomes";
 export { HowItWorks } from "./HowItWorks";
 export { Features } from "./Features";
 export { WhyClaimPilot } from "./WhyClaimPilot";
+export { CoachTeaser } from "./CoachTeaser";
 export { Pricing } from "./Pricing";
 export { FAQ } from "./FAQ";
 export { FinalCTA } from "./FinalCTA";

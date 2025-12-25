@@ -37,4 +37,5 @@ export { TopMoves } from "./TopMoves";
 export { MonthlyPlanCard } from "./MonthlyPlanCard";
 export { MonthGlance } from "./MonthGlance";
 export { SetupChecklist } from "./SetupChecklist";
+export { CoachTab } from "./CoachTab";
 
