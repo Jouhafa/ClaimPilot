@@ -10,7 +10,7 @@ const tiers = [
     subtitle: "Spending Truth",
     price: "0",
     currency: "AED",
-    description: "Understand where your money goes",
+    description: "See exactly where your money goes (categories, recurring bills, unusual spikes).",
     features: [
       "Import unlimited statements",
       "Auto-categorization (Groceries, Dining, etc.)",
@@ -22,7 +22,7 @@ const tiers = [
     ],
     lockedFeatures: [
       "Goal tracking & planning",
-      "Smart budget suggestions",
+      "Budget allocation buckets",
       "Monthly action plans",
     ],
     cta: "Start Free",
@@ -36,8 +36,8 @@ const tiers = [
     currency: "USD",
     localPrice: "~199 AED",
     originalPrice: "$79",
-    description: "Turn clarity into action",
-    badge: "Popular",
+    description: "Turn insights into action: set goals, allocate buckets, track progress, export, and keep your history.",
+    badge: "Most Popular",
     features: [
       "Everything in Free, plus:",
       "Goal feasibility engine",
@@ -53,17 +53,17 @@ const tiers = [
       "Monthly action plans",
       "Investment policy builder",
     ],
-    cta: "Get Lifetime Access",
+    cta: "Unlock Goals & Control",
     ctaLink: "https://jouhafaz.gumroad.com/l/rizayy",
     highlighted: true,
   },
   {
     name: "Premium",
-    subtitle: "Your Monthly Playbook",
+    subtitle: "Monthly Playbook",
     price: "99",
     currency: "USD",
     localPrice: "~365 AED",
-    description: "The app becomes your financial coach",
+    description: "Your personal finance coach: monthly plan, weekly check-ins, smarter recommendations.",
     badge: "Coming Soon",
     features: [
       "Everything in Lifetime, plus:",
@@ -92,12 +92,12 @@ export function Pricing() {
             From clarity to control
           </h2>
           <p className="text-muted-foreground text-lg max-w-2xl mx-auto">
-            Start free and upgrade when you're ready for goal-based budgeting and personalized action plans.
+            Start free to understand your spending. Upgrade when you&apos;re ready for goal-based budgeting and personalized action plans.
           </p>
         </div>
 
         <div className="grid md:grid-cols-3 gap-6 lg:gap-8">
-          {tiers.map((tier, index) => (
+          {tiers.map((tier) => (
             <div
               key={tier.name}
               className={`relative flex flex-col p-6 lg:p-8 rounded-2xl border ${

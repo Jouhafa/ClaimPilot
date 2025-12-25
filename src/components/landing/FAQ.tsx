@@ -4,6 +4,14 @@ import { useState } from "react";
 
 const faqs = [
   {
+    question: "Do I need to connect my bank?",
+    answer: "No. Just import a statement (CSV, Excel, or PDF). That's it. No bank linking, no credentials, no waiting for account verification.",
+  },
+  {
+    question: "What do I get immediately with Lifetime?",
+    answer: "With the Lifetime plan you unlock: goal tracking with feasibility scores, Needs/Wants/Goals budget buckets, scenario mode (what-if calculator), reimbursement tracking with batches, credit card safety calculator, and advanced exports. Plus all future updates — forever.",
+  },
+  {
     question: "Is my financial data safe?",
     answer: "Yes, 100%. Your data never leaves your browser. We use IndexedDB (local storage) to save everything on your device. No servers, no cloud, no risk. Even we can't see your transactions.",
   },
@@ -13,11 +21,11 @@ const faqs = [
   },
   {
     question: "What do I get for $54?",
-    answer: "Lifetime access to all features including CSV/Excel export, AI-powered parsing, auto-tagging rules, and all future updates. No subscriptions, no recurring fees. Pay once, use forever.",
+    answer: "Lifetime access to all current and future features including goal tracking, budget buckets, scenario mode, CSV/Excel export, AI-powered parsing, auto-tagging rules. No subscriptions, no recurring fees. Pay once, use forever.",
   },
   {
     question: "Can I try before buying?",
-    answer: "Absolutely. The app is fully functional for free — import statements, tag transactions, track reimbursements, use the Card Safety calculator. You only need to pay to export reports.",
+    answer: "Absolutely. The Free tier is fully functional — import statements, see your spending breakdown, detect recurring bills, spot anomalies. You only need Lifetime to unlock goals, budgets, and exports.",
   },
   {
     question: "What's the Card Safety feature?",
@@ -95,4 +103,3 @@ export function FAQ() {
     </section>
   );
 }
-

@@ -35,56 +35,61 @@ export function Hero() {
             <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75"></span>
             <span className="relative inline-flex rounded-full h-2 w-2 bg-primary"></span>
           </span>
-          <span className="text-sm text-primary font-medium">Early Access — $54 for first 20 buyers</span>
+          <span className="text-sm text-primary font-medium">Early Access — Lifetime deal $54 for first 20 buyers</span>
         </div>
 
-        {/* Headline - Pain focused */}
+        {/* Headline - Broader positioning */}
         <h1 className="text-5xl md:text-7xl font-bold tracking-tight mb-6 leading-[1.1]">
-          Stop paying{" "}
-          <span className="text-transparent bg-clip-text bg-gradient-to-r from-destructive via-red-400 to-destructive">
-            interest
-          </span>{" "}
-          on money{" "}
+          Know where your money goes{" "}
           <br className="hidden md:block" />
           <span className="text-transparent bg-clip-text bg-gradient-to-r from-primary via-cyan-400 to-primary animate-gradient">
-            your company owes you
+            and what to do next.
           </span>
         </h1>
 
-        {/* Subheadline - Specific solution */}
-        <p className="text-xl md:text-2xl text-muted-foreground max-w-2xl mx-auto mb-4">
-          Import your credit card statement. Tag reimbursables in 2 minutes. 
-          Export a finance-ready report. Know exactly what to pay.
+        {/* Subheadline - Solution */}
+        <p className="text-xl md:text-2xl text-muted-foreground max-w-3xl mx-auto mb-4">
+          Import any bank statement (CSV/PDF). ClaimPilot turns messy transactions into a clear breakdown, 
+          goal-based budget, and a simple monthly action plan — in minutes.
         </p>
 
-        {/* Who it's for */}
-        <p className="text-sm text-muted-foreground mb-10">
-          Built for consultants, frequent travelers, and anyone who floats company expenses on personal cards.
+        {/* Trust line */}
+        <p className="text-sm text-muted-foreground mb-10 flex items-center justify-center gap-2">
+          <svg className="w-4 h-4 text-primary" fill="currentColor" viewBox="0 0 20 20">
+            <path fillRule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clipRule="evenodd" />
+          </svg>
+          Privacy-first. Your data stays on your device.
         </p>
 
         {/* CTA Buttons */}
         <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
           <Link href="/app">
             <Button size="lg" className="h-14 px-8 text-lg font-semibold animate-pulse-glow">
-              Try Free — No Signup
+              Try Free — Import Demo Data
               <svg className="ml-2 w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
               </svg>
             </Button>
           </Link>
-          <a href="#how-it-works" className="text-muted-foreground hover:text-foreground transition-colors flex items-center gap-2">
-            See how it works
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-            </svg>
+          <a
+            href="https://jouhafaz.gumroad.com/l/rizayy"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            <Button size="lg" variant="outline" className="h-14 px-8 text-lg font-semibold">
+              Get Lifetime Access ($54)
+              <svg className="ml-2 w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+              </svg>
+            </Button>
           </a>
         </div>
 
         {/* Social proof placeholder */}
         <div className="mt-12 p-4 rounded-xl bg-card/50 border border-border max-w-md mx-auto">
           <p className="text-sm italic text-muted-foreground">
-            &quot;I was paying AED 200+ in interest every month because I couldn&apos;t track what was reimbursable. 
-            This tool paid for itself in one statement.&quot;
+            &quot;I finally understand where my money actually goes. The action plan 
+            told me exactly what to do — saved me AED 800 last month.&quot;
           </p>
           <p className="text-sm font-medium mt-2">— Consultant, Big 4</p>
         </div>

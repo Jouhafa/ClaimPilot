@@ -1,8 +1,10 @@
 export { Hero } from "./Hero";
-export { PainPoints } from "./PainPoints";
+export { ProofSection } from "./ProofSection";
+export { Outcomes } from "./Outcomes";
 export { HowItWorks } from "./HowItWorks";
 export { Features } from "./Features";
+export { WhyClaimPilot } from "./WhyClaimPilot";
 export { Pricing } from "./Pricing";
 export { FAQ } from "./FAQ";
+export { FinalCTA } from "./FinalCTA";
 export { Footer } from "./Footer";
-
