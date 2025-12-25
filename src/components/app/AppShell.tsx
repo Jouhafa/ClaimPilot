@@ -105,6 +105,7 @@ function MonthSelector({ selectedMonth, onMonthChange }: {
 function AppContent() {
   const [activeTab, setActiveTab] = useState<TabId>("home");
   const [selectedMonth, setSelectedMonth] = useState(() => new Date());
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   const { transactions, goals, tier, hasAccess } = useApp();
   const searchParams = useSearchParams();
 
@@ -171,9 +172,10 @@ function AppContent() {
     t => t.tag === "reimbursable" && t.status === "draft"
   ).length;
 
-  // Navigation callback
+  // Navigation callback - also closes sidebar on mobile
   const handleNavigate = useCallback((tab: string) => {
     setActiveTab(tab as TabId);
+    setSidebarOpen(false);
   }, []);
 
   // Check if nav item is unlocked
@@ -462,8 +464,22 @@ function AppContent() {
 
   return (
     <div className="min-h-screen flex">
+      {/* Mobile backdrop */}
+      {sidebarOpen && (
+        <div 
+          className="fixed inset-0 z-30 bg-black/50 md:hidden transition-opacity"
+          onClick={() => setSidebarOpen(false)}
+          aria-hidden="true"
+        />
+      )}
+      
       {/* Sidebar */}
-      <aside className="w-64 bg-sidebar border-r border-sidebar-border flex flex-col">
+      <aside className={cn(
+        "fixed inset-y-0 left-0 z-40 w-64 bg-sidebar border-r border-sidebar-border flex flex-col",
+        "transform transition-transform duration-300 ease-in-out",
+        "md:relative md:translate-x-0",
+        sidebarOpen ? "translate-x-0" : "-translate-x-full"
+      )}>
         {/* Logo */}
         <div className="p-6 border-b border-sidebar-border">
           <div className="flex items-center justify-between mb-2">
@@ -475,7 +491,19 @@ function AppContent() {
               </div>
               <span className="font-semibold text-sidebar-foreground">ClaimPilot</span>
             </Link>
-            <ThemeToggle />
+            <div className="flex items-center gap-2">
+              <ThemeToggle />
+              {/* Close button - mobile only */}
+              <button
+                onClick={() => setSidebarOpen(false)}
+                className="md:hidden p-1.5 rounded-lg hover:bg-muted transition-colors"
+                aria-label="Close menu"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
           </div>
           <DemoModeIndicator />
         </div>
@@ -513,7 +541,10 @@ function AppContent() {
                     return (
                       <li key={item.id}>
                         <button
-                          onClick={() => setActiveTab(item.id)}
+                          onClick={() => {
+                            setActiveTab(item.id);
+                            setSidebarOpen(false);
+                          }}
                           className={cn(
                             "w-full flex items-center gap-3 px-3 py-2 rounded-lg text-left transition-all duration-200",
                             isActive
@@ -589,20 +620,33 @@ function AppContent() {
       </aside>
 
       {/* Main content */}
-      <main className="flex-1 overflow-auto bg-background">
+      <main className="flex-1 overflow-auto bg-background md:ml-0">
         {/* Header with month selector */}
-        <header className="sticky top-0 z-10 bg-background/80 backdrop-blur-sm border-b border-border px-8 py-3">
+        <header className="sticky top-0 z-10 bg-background/80 backdrop-blur-sm border-b border-border px-4 md:px-8 py-3">
           <div className="flex items-center justify-between max-w-6xl mx-auto">
-            <MonthSelector 
-              selectedMonth={selectedMonth} 
-              onMonthChange={setSelectedMonth} 
-            />
+            <div className="flex items-center gap-3">
+              {/* Hamburger menu button - mobile only */}
+              <button
+                onClick={() => setSidebarOpen(true)}
+                className="md:hidden p-2 -ml-2 rounded-lg hover:bg-muted transition-colors"
+                aria-label="Open menu"
+              >
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+                </svg>
+              </button>
+              <MonthSelector 
+                selectedMonth={selectedMonth} 
+                onMonthChange={setSelectedMonth} 
+              />
+            </div>
             <div className="flex items-center gap-4 text-sm text-muted-foreground">
-              <span>{transactions.length} transactions</span>
+              <span className="hidden sm:inline">{transactions.length} transactions</span>
+              <span className="sm:hidden">{transactions.length}</span>
             </div>
           </div>
         </header>
-        <div className="p-8 max-w-6xl mx-auto">
+        <div className="p-4 md:p-8 max-w-6xl mx-auto">
           {renderContent()}
         </div>
       </main>
