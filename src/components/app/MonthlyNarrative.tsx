@@ -8,6 +8,7 @@ import { useApp } from "@/lib/context";
 import { getCategoryBreakdown, getMonthOverMonthComparison, getCashflowSummary } from "@/lib/categories";
 import { getRecurringSummary } from "@/lib/recurringDetector";
 import { CATEGORY_CONFIG } from "@/lib/types";
+import { generateMonthlyNarrative } from "@/lib/api";
 
 interface NarrativeSection {
   title: string;
@@ -189,21 +190,18 @@ export function MonthlyNarrative() {
         income: incomeConfig?.monthlyIncome,
       };
 
-      const response = await fetch("/api/generate-narrative", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ summaryData }),
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        setAiNarrative(data.narrative);
-      } else {
-        setAiNarrative("Unable to generate AI narrative. Using local insights instead.");
+      // Try backend AI generation (optional enhancement)
+      try {
+        const result = await generateMonthlyNarrative(summaryData);
+        setAiNarrative(result.narrative);
+      } catch (error) {
+        console.warn("AI narrative unavailable, using local insights:", error);
+        // Fallback: Use local narrative (already generated in localNarrative)
+        setAiNarrative(null); // Will show localNarrative instead
       }
     } catch (error) {
-      console.error("AI narrative error:", error);
-      setAiNarrative("Unable to generate AI narrative. Using local insights instead.");
+      console.error("Narrative generation error:", error);
+      setAiNarrative(null); // Fallback to local narrative
     } finally {
       setIsGeneratingAI(false);
     }

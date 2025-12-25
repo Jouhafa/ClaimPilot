@@ -4,8 +4,9 @@ import { useState, useCallback, useRef } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useApp } from "@/lib/context";
-import { parseFile } from "@/lib/parsers";
+import { parseFile, parsePDFText } from "@/lib/parsers";
 import { autoTagTransactions } from "@/lib/autoTagger";
+import { parsePDFWithAI } from "@/lib/api";
 import { ImportProfileManager } from "./ImportProfileManager";
 import { DemoDataLoader } from "./DemoDataLoader";
 import { v4 as uuidv4 } from "uuid";
@@ -110,39 +111,39 @@ export function ImportTab({ onImportSuccess }: ImportTabProps) {
     setError(null);
     
     try {
-      const response = await fetch("/api/parse-pdf", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text: lastFileText }),
-      });
+      // Try backend AI parsing first (optional enhancement)
+      let aiTransactions: Transaction[] = [];
       
-      const data = await response.json();
-      
-      if (!response.ok) {
-        throw new Error(data.error || "AI parsing failed");
+      try {
+        const aiResult = await parsePDFWithAI(lastFileText);
+        if (aiResult.transactions && aiResult.transactions.length > 0) {
+          // Convert to full Transaction objects
+          aiTransactions = aiResult.transactions.map((tx) => ({
+            id: uuidv4(),
+            date: tx.date,
+            description: tx.description,
+            merchant: tx.merchant,
+            amount: tx.amount,
+            currency: tx.currency || "AED",
+            tag: null,
+            createdAt: new Date().toISOString(),
+          }));
+        }
+      } catch (aiError) {
+        console.warn("AI parsing unavailable, falling back to client-side:", aiError);
       }
       
-      if (data.transactions && data.transactions.length > 0) {
-        // Convert to full Transaction objects
-        const fullTransactions: Transaction[] = data.transactions.map((tx: {
-          date: string;
-          description: string;
-          merchant: string;
-          amount: number;
-          currency: string;
-        }) => ({
-          id: uuidv4(),
-          date: tx.date,
-          description: tx.description,
-          merchant: tx.merchant,
-          amount: tx.amount,
-          currency: tx.currency || "AED",
-          tag: null,
-          createdAt: new Date().toISOString(),
-        }));
-        
-        // Auto-tag the AI-parsed transactions
-        const taggedTransactions = autoTagTransactions(fullTransactions, rules);
+      // Fallback to client-side parsing if AI failed or returned no results
+      if (aiTransactions.length === 0) {
+        const clientParsed = parsePDFText(lastFileText, rules);
+        if (clientParsed.length > 0) {
+          aiTransactions = clientParsed;
+        }
+      }
+      
+      if (aiTransactions.length > 0) {
+        // Auto-tag the parsed transactions
+        const taggedTransactions = autoTagTransactions(aiTransactions, rules);
         await addTransactions(taggedTransactions);
         setSuccessCount(taggedTransactions.length);
         setShowAIOption(false);
@@ -150,11 +151,11 @@ export function ImportTab({ onImportSuccess }: ImportTabProps) {
         // Navigate to Review tab
         onImportSuccess?.();
       } else {
-        setError("AI couldn't extract transactions. Please check the file format.");
+        setError("Couldn't extract transactions. Please check the file format.");
       }
     } catch (err) {
-      console.error("AI parsing error:", err);
-      setError(err instanceof Error ? err.message : "AI parsing failed");
+      console.error("Parsing error:", err);
+      setError(err instanceof Error ? err.message : "Parsing failed");
     } finally {
       setIsAIProcessing(false);
     }
