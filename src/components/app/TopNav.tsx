@@ -9,7 +9,7 @@ import { ThemeToggle } from "@/components/ThemeToggle";
 import { getAutoTagStats } from "@/lib/autoTagger";
 import type { LicenseTier } from "@/lib/types";
 
-type TabId = "hub" | "review" | "plan" | "coach" | "import" | "transactions" | "buckets" | "analytics" | "reimbursements" | "recurring" | "action-plan" | "investments" | "card-safety" | "export" | "create-wrap" | "recaps" | "goals" | "settings";
+type TabId = "hub" | "review" | "plan" | "coach" | "import" | "transactions" | "buckets" | "analytics" | "reimbursements" | "recurring" | "action-plan" | "investments" | "card-safety" | "export" | "create-wrap" | "recaps" | "goals" | "learn" | "settings";
 
 interface NavItem {
   id: TabId;
