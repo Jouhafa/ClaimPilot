@@ -1,0 +1,4 @@
+docstrange
+flask
+flask-cors
+
