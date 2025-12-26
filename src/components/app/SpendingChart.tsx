@@ -95,7 +95,11 @@ export function SpendingChart({ transactions }: SpendingChartProps) {
                   fill={seg.color}
                   stroke={isDark ? "white" : "rgba(0, 0, 0, 0.1)"}
                   strokeWidth="2"
-                  className="transition-all hover:opacity-80"
+                  className="transition-all hover:opacity-80 chart-segment-animated"
+                  style={{ 
+                    animationDelay: `${idx * 50}ms`,
+                    opacity: 0
+                  }}
                 />
               ))}
               {/* Inner circle for donut effect */}

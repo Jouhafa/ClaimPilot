@@ -89,6 +89,7 @@ export function ImportTab({ onImportSuccess }: ImportTabProps) {
   const [showStatementTypeModal, setShowStatementTypeModal] = useState(false);
   const [pendingFileForType, setPendingFileForType] = useState<File | null>(null);
   const [pendingDetectedType, setPendingDetectedType] = useState<StatementType>("unknown");
+  const [showClearAllModal, setShowClearAllModal] = useState(false);
   const [importDebug, setImportDebug] = useState<Array<{
     fileName: string;
     statementType: StatementType;
@@ -934,10 +935,13 @@ export function ImportTab({ onImportSuccess }: ImportTabProps) {
   }, [handleFile]);
 
   const handleClearAll = async () => {
-    if (confirm("Are you sure you want to delete all transactions? This cannot be undone.")) {
-      await deleteAllTransactions();
-      setSuccessCount(null);
-    }
+    setShowClearAllModal(true);
+  };
+
+  const confirmClearAll = async () => {
+    await deleteAllTransactions();
+    setSuccessCount(null);
+    setShowClearAllModal(false);
   };
 
   return (
@@ -1431,9 +1435,6 @@ export function ImportTab({ onImportSuccess }: ImportTabProps) {
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
                       </svg>
                       Bank Account (Debit / Current / Savings)
-                      <span className="ml-auto text-xs text-muted-foreground">
-                        Date | Description | Debit | Credit | Balance
-                      </span>
                     </Button>
                     <Button
                       variant={pendingDetectedType === "enbd_credit" ? "default" : "outline"}
@@ -1444,10 +1445,49 @@ export function ImportTab({ onImportSuccess }: ImportTabProps) {
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
                       </svg>
                       Credit Card
-                      <span className="ml-auto text-xs text-muted-foreground">
-                        Transaction Date | Posting Date | Description | Amount
-                      </span>
                     </Button>
+                  </CardContent>
+                </Card>
+              </div>
+            )}
+
+            {/* Clear All Confirmation Modal */}
+            {showClearAllModal && (
+              <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+                <Card className="w-full max-w-md m-4">
+                  <CardHeader className="border-b">
+                    <div className="flex items-center gap-3">
+                      <div className="w-12 h-12 rounded-full bg-destructive/10 flex items-center justify-center flex-shrink-0">
+                        <svg className="w-6 h-6 text-destructive" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                        </svg>
+                      </div>
+                      <div className="flex-1">
+                        <CardTitle className="text-xl">Clear All Transactions?</CardTitle>
+                        <CardDescription className="mt-1">
+                          This action cannot be undone
+                        </CardDescription>
+                      </div>
+                    </div>
+                  </CardHeader>
+                  <CardContent className="pt-6">
+                    <p className="text-sm text-muted-foreground mb-6">
+                      Are you sure you want to delete all transactions? This will permanently remove all transaction data from your account.
+                    </p>
+                    <div className="flex gap-3 justify-end">
+                      <Button
+                        variant="outline"
+                        onClick={() => setShowClearAllModal(false)}
+                      >
+                        Cancel
+                      </Button>
+                      <Button
+                        variant="destructive"
+                        onClick={confirmClearAll}
+                      >
+                        Delete All
+                      </Button>
+                    </div>
                   </CardContent>
                 </Card>
               </div>

@@ -497,11 +497,19 @@ export function TransactionsTab() {
           </div>
         </CardHeader>
         <CardContent>
-          <div ref={tableRef} className="rounded-lg border overflow-hidden">
-            <table className="w-full">
+          <div ref={tableRef} className="rounded-lg border overflow-x-auto table-container">
+            <table className="w-full" style={{ minWidth: '1000px', tableLayout: 'fixed' }}>
+              <colgroup>
+                <col style={{ width: '48px' }} />
+                <col style={{ width: '112px' }} />
+                <col style={{ width: '300px' }} />
+                <col style={{ width: '140px' }} />
+                <col style={{ width: '140px' }} />
+                <col style={{ width: '260px' }} />
+              </colgroup>
               <thead>
                 <tr className="border-b bg-muted/50">
-                  <th className="px-4 py-3 text-left">
+                  <th className="px-3 py-3 text-left">
                     <input
                       type="checkbox"
                       checked={selectedIds.size === filteredTransactions.length && filteredTransactions.length > 0}
@@ -509,11 +517,11 @@ export function TransactionsTab() {
                       className="rounded"
                     />
                   </th>
-                  <th className="px-4 py-3 text-left text-sm font-medium">Date</th>
-                  <th className="px-4 py-3 text-left text-sm font-medium">Merchant</th>
-                  <th className="px-4 py-3 text-right text-sm font-medium">Amount</th>
-                  <th className="px-4 py-3 text-center text-sm font-medium">Tag</th>
-                  <th className="px-4 py-3 text-right text-sm font-medium">Actions</th>
+                  <th className="px-3 py-3 text-left text-sm font-medium">Date</th>
+                  <th className="px-3 py-3 text-left text-sm font-medium">Merchant</th>
+                  <th className="px-3 py-3 text-right text-sm font-medium">Amount</th>
+                  <th className="px-3 py-3 text-center text-sm font-medium">Tag</th>
+                  <th className="px-3 py-3 text-right text-sm font-medium">Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -534,7 +542,7 @@ export function TransactionsTab() {
                         } ${hasSplits ? "bg-muted/20" : ""}`}
                         onClick={() => setFocusedIndex(index)}
                       >
-                        <td className="px-4 py-3">
+                        <td className="px-3 py-3">
                           <input
                             type="checkbox"
                             checked={selectedIds.has(tx.id)}
@@ -543,20 +551,20 @@ export function TransactionsTab() {
                             disabled={hasSplits}
                           />
                         </td>
-                        <td className="px-4 py-3 text-sm text-muted-foreground">
+                        <td className="px-3 py-3 text-sm text-muted-foreground whitespace-nowrap">
                           {editingTransaction === tx.id ? (
                             <Input
                               type="date"
                               value={editValues.date || tx.date}
                               onChange={(e) => setEditValues(prev => ({ ...prev, date: e.target.value }))}
-                              className="h-7 text-sm w-32"
+                              className="h-7 text-sm w-28"
                               onClick={(e) => e.stopPropagation()}
                             />
                           ) : (
                             tx.date
                           )}
                         </td>
-                        <td className="px-4 py-3">
+                        <td className="px-3 py-3 overflow-hidden max-w-[300px]">
                           {editingTransaction === tx.id ? (
                             <div className="space-y-1">
                               <Input
@@ -591,23 +599,23 @@ export function TransactionsTab() {
                             />
                           ) : (
                             <div 
-                              className="cursor-pointer group"
+                              className="cursor-pointer group min-w-0"
                               onDoubleClick={() => startEditingMerchant(tx)}
                               title="Double-click to edit"
                             >
-                              <div className="text-sm font-medium group-hover:text-primary transition-colors flex items-center gap-2">
-                                {tx.merchant}
+                              <div className="text-sm font-medium group-hover:text-primary transition-colors flex items-center gap-2 min-w-0">
+                                <span className="truncate">{tx.merchant}</span>
                                 {hasSplits && (
-                                  <Badge variant="outline" className="text-xs">Split</Badge>
+                                  <Badge variant="outline" className="text-xs flex-shrink-0">Split</Badge>
                                 )}
                               </div>
-                              <div className="text-xs text-muted-foreground truncate max-w-xs" title={tx.description}>
-                                {tx.description.substring(0, 50)}{tx.description.length > 50 ? "..." : ""}
+                              <div className="text-xs text-muted-foreground truncate" title={tx.description}>
+                                {tx.description}
                               </div>
                             </div>
                           )}
                         </td>
-                        <td className={`px-4 py-3 text-sm text-right font-mono ${tx.amount >= 0 ? "text-green-500" : "text-foreground"} ${hasSplits ? "line-through text-muted-foreground" : ""}`}>
+                        <td className={`px-3 py-3 text-sm text-right font-mono whitespace-nowrap ${tx.amount >= 0 ? "text-green-500" : "text-foreground"} ${hasSplits ? "line-through text-muted-foreground" : ""}`}>
                           {editingTransaction === tx.id ? (
                             <Input
                               type="number"
@@ -621,15 +629,17 @@ export function TransactionsTab() {
                             <>{formatAmount(tx.amount)} {tx.currency}</>
                           )}
                         </td>
-                        <td className="px-4 py-3 text-center">
-                          {hasSplits ? (
-                            <Badge variant="outline" className="text-xs">See splits</Badge>
-                          ) : (
-                            getTagBadge(tx.tag)
-                          )}
+                        <td className="px-3 py-3 text-center whitespace-nowrap">
+                          <div className="flex items-center justify-center">
+                            {hasSplits ? (
+                              <Badge variant="outline" className="text-xs">See splits</Badge>
+                            ) : (
+                              getTagBadge(tx.tag)
+                            )}
+                          </div>
                         </td>
-                        <td className="px-4 py-3 text-right">
-                          <div className="flex items-center justify-end gap-1">
+                        <td className="px-3 py-3 text-right whitespace-nowrap">
+                          <div className="flex items-center justify-end gap-1 flex-shrink-0">
                             {editingTransaction === tx.id ? (
                               <>
                                 <Button
@@ -708,7 +718,7 @@ export function TransactionsTab() {
                                   <select
                                     value={tx.tag || ""}
                                     onChange={(e) => handleTagChange(tx.id, (e.target.value || null) as TransactionTag)}
-                                    className="text-sm bg-transparent border rounded px-2 py-1"
+                                    className="text-xs bg-transparent border rounded px-1.5 py-0.5 h-7 min-w-0 max-w-[100px]"
                                     onClick={(e) => e.stopPropagation()}
                                   >
                                     <option value="">Untagged</option>

@@ -199,7 +199,7 @@ Thank you!`);
         title: "Potential duplicates found",
         description: `${duplicateCount} transactions might be duplicates`,
         actions: [
-          { label: "Review", variant: "outline", onClick: () => onNavigate("transactions") },
+          { label: "Review", variant: "outline", onClick: () => onNavigate("review") },
         ],
         dismissible: true,
       });

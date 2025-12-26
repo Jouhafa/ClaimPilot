@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { useApp } from "@/lib/context";
 import { getAutoTagStats, findSimilarTransactions } from "@/lib/autoTagger";
+import { cn } from "@/lib/utils";
 import type { Transaction, TransactionTag } from "@/lib/types";
 
 interface ReviewTabProps {
@@ -198,17 +199,26 @@ export function ReviewTab({ onNavigate }: ReviewTabProps) {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 max-w-[1200px] mx-auto px-4 md:px-6">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Review Suggestions</h1>
-          <p className="text-muted-foreground mt-2">
-            Approve or adjust smart tagging suggestions
+          <h1 className="text-[32px] md:text-[36px] font-bold tracking-tight" style={{ fontWeight: 700, lineHeight: 1.35 }}>
+            Review
+          </h1>
+          <p className="text-[15px] text-muted-foreground mt-2" style={{ lineHeight: 1.5 }}>
+            {needsReview.length > 0 
+              ? `${needsReview.length} transactions need your review`
+              : "All transactions reviewed"}
           </p>
         </div>
         {progressPercent === 100 && (
-          <Button onClick={() => onNavigate("export")}>
+          <Button 
+            onClick={() => onNavigate("export")}
+            size="lg"
+            className="min-h-[44px] rounded-xl"
+            style={{ borderRadius: "14px" }}
+          >
             <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
             </svg>
@@ -218,127 +228,124 @@ export function ReviewTab({ onNavigate }: ReviewTabProps) {
       </div>
 
       {/* Progress */}
-      <Card>
-        <CardContent className="pt-6">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-sm font-medium">Progress</span>
-            <span className="text-sm text-muted-foreground">
+      <Card style={{ borderRadius: "16px", padding: "20px" }}>
+        <CardContent className="p-0">
+          <div className="flex items-center justify-between mb-3">
+            <span className="text-[14px] font-medium" style={{ fontWeight: 500 }}>Progress</span>
+            <span className="text-[14px] text-muted-foreground">
               {taggedCount} of {totalTaggable} tagged
             </span>
           </div>
           <Progress value={progressPercent} className="h-2" />
-          <div className="flex justify-between mt-2 text-xs text-muted-foreground">
+          <div className="flex justify-between mt-3 text-[13px] text-muted-foreground">
             <span>{stats.autoTaggedCount} auto-suggested</span>
             <span>{stats.needsReviewCount} need review</span>
           </div>
         </CardContent>
       </Card>
 
-      {/* High Confidence Section */}
-      {highConfidence.length > 0 && (
-        <Card>
-          <CardHeader>
+      {/* Primary Actions */}
+      <div className="flex flex-wrap gap-3">
+        {highConfidence.length > 0 && (
+          <Button
+            onClick={handleApproveAllHigh}
+            variant="outline"
+            size="lg"
+            className="min-h-[44px] rounded-xl"
+            style={{ borderRadius: "14px" }}
+          >
+            <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+            </svg>
+            Auto-tag {highConfidence.length} obvious ones
+          </Button>
+        )}
+        {needsReview.length > 0 && (
+          <Button
+            onClick={() => {}}
+            size="lg"
+            className="min-h-[44px] rounded-xl"
+            style={{ borderRadius: "14px" }}
+          >
+            Review remaining ({needsReview.length})
+          </Button>
+        )}
+        {progressPercent === 100 && (
+          <Button
+            onClick={() => onNavigate("hub")}
+            variant="outline"
+            size="lg"
+            className="min-h-[44px] rounded-xl"
+            style={{ borderRadius: "14px" }}
+          >
+            Finish review
+          </Button>
+        )}
+      </div>
+
+      {/* Needs Review Queue - Primary Focus */}
+      {needsReview.length > 0 && (
+        <Card style={{ borderRadius: "16px" }}>
+          <CardHeader style={{ padding: "20px 20px 16px" }}>
             <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <div className="w-8 h-8 rounded-full bg-green-500/20 flex items-center justify-center">
-                  <svg className="w-4 h-4 text-green-500" fill="currentColor" viewBox="0 0 20 20">
-                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-full bg-yellow-500/20 flex items-center justify-center">
+                  <svg className="w-5 h-5 text-yellow-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
                   </svg>
                 </div>
                 <div>
-                  <CardTitle className="text-lg">High Confidence ({highConfidence.length})</CardTitle>
-                  <CardDescription>These look correct - approve all at once</CardDescription>
+                  <CardTitle className="text-[18px]" style={{ fontWeight: 600 }}>Needs Review ({needsReview.length})</CardTitle>
+                  <CardDescription className="text-[14px]">Click R/P/I to tag quickly</CardDescription>
                 </div>
               </div>
-              <Button onClick={handleApproveAllHigh} className="bg-green-500 hover:bg-green-600">
-                <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => onNavigate("transactions")}
+                className="text-[13px]"
+              >
+                Review transactions
+                <svg className="w-4 h-4 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                 </svg>
-                Approve All
               </Button>
             </div>
           </CardHeader>
-          <CardContent>
-            <div className="space-y-2">
-              {highConfidence.slice(0, 5).map((tx) => (
-                <div
-                  key={tx.id}
-                  className="flex items-center justify-between p-3 rounded-lg border bg-card hover:bg-muted/30 transition-colors"
-                >
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
-                      <span className="font-medium truncate">{tx.merchant}</span>
-                      <span className="text-xs text-muted-foreground">
-                        {tx.tagReason}
-                      </span>
-                    </div>
-                    <div className="text-sm text-muted-foreground">{tx.date}</div>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <span className="font-mono text-sm">
-                      {Math.abs(tx.amount).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} {tx.currency}
-                    </span>
-                    <Badge className={getTagColor(tx.tag)}>
-                      {tx.tag === "reimbursable" ? "R" : tx.tag === "personal" ? "P" : "I"}
-                    </Badge>
-                  </div>
-                </div>
-              ))}
-              {highConfidence.length > 5 && (
-                <p className="text-sm text-muted-foreground text-center py-2">
-                  +{highConfidence.length - 5} more transactions
-                </p>
-              )}
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Needs Review Section */}
-      {needsReview.length > 0 && (
-        <Card>
-          <CardHeader>
-            <div className="flex items-center gap-2">
-              <div className="w-8 h-8 rounded-full bg-yellow-500/20 flex items-center justify-center">
-                <svg className="w-4 h-4 text-yellow-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                </svg>
-              </div>
-              <div>
-                <CardTitle className="text-lg">Needs Review ({needsReview.length})</CardTitle>
-                <CardDescription>Click a tag to apply it</CardDescription>
-              </div>
-            </div>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-2">
+          <CardContent style={{ padding: "0 20px 20px" }}>
+            <div className="space-y-3">
               {needsReview.map((tx) => (
                 <div
                   key={tx.id}
-                  className="flex items-center justify-between p-3 rounded-lg border bg-card hover:bg-muted/30 transition-colors"
+                  className="flex items-center justify-between p-4 rounded-xl border bg-card hover:bg-muted/30 transition-colors"
+                  style={{ borderRadius: "16px" }}
                 >
                   <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
-                      <span className="font-medium truncate">{tx.merchant}</span>
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="font-medium text-[15px]" style={{ fontWeight: 500 }}>{tx.merchant}</span>
                       {tx.tagReason && (
-                        <span className={`text-xs ${getConfidenceColor(tx.tagConfidence)}`}>
+                        <span className={cn("text-[12px]", getConfidenceColor(tx.tagConfidence))}>
                           {tx.tagReason}
                         </span>
                       )}
                     </div>
-                    <div className="text-sm text-muted-foreground">
-                      {tx.date} • {tx.description.substring(0, 40)}{tx.description.length > 40 ? "..." : ""}
+                    <div className="text-[13px] text-muted-foreground">
+                      {tx.date} • {tx.description.substring(0, 50)}{tx.description.length > 50 ? "..." : ""}
                     </div>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <span className="font-mono text-sm mr-2">
+                  <div className="flex items-center gap-3 ml-4">
+                    <span className="font-mono text-[15px] font-semibold">
                       {Math.abs(tx.amount).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} {tx.currency}
                     </span>
-                    <div className="flex gap-1">
+                    <div className="flex gap-2">
                       <Button
                         size="sm"
                         variant={tx.tag === "reimbursable" ? "default" : "outline"}
-                        className={tx.tag === "reimbursable" ? "bg-green-500 hover:bg-green-600" : "hover:bg-green-500/10 hover:text-green-500"}
+                        className={cn(
+                          "min-w-[44px] h-[44px] rounded-xl",
+                          tx.tag === "reimbursable" ? "bg-green-500 hover:bg-green-600" : "hover:bg-green-500/10 hover:text-green-500"
+                        )}
+                        style={{ borderRadius: "12px" }}
                         onClick={() => handleTag(tx, "reimbursable")}
                       >
                         R
@@ -346,7 +353,11 @@ export function ReviewTab({ onNavigate }: ReviewTabProps) {
                       <Button
                         size="sm"
                         variant={tx.tag === "personal" ? "default" : "outline"}
-                        className={tx.tag === "personal" ? "bg-blue-500 hover:bg-blue-600" : "hover:bg-blue-500/10 hover:text-blue-500"}
+                        className={cn(
+                          "min-w-[44px] h-[44px] rounded-xl",
+                          tx.tag === "personal" ? "bg-blue-500 hover:bg-blue-600" : "hover:bg-blue-500/10 hover:text-blue-500"
+                        )}
+                        style={{ borderRadius: "12px" }}
                         onClick={() => handleTag(tx, "personal")}
                       >
                         P
@@ -354,7 +365,11 @@ export function ReviewTab({ onNavigate }: ReviewTabProps) {
                       <Button
                         size="sm"
                         variant={tx.tag === "ignore" ? "default" : "outline"}
-                        className={tx.tag === "ignore" ? "bg-gray-500 hover:bg-gray-600" : "hover:bg-gray-500/10 hover:text-gray-500"}
+                        className={cn(
+                          "min-w-[44px] h-[44px] rounded-xl",
+                          tx.tag === "ignore" ? "bg-gray-500 hover:bg-gray-600" : "hover:bg-gray-500/10 hover:text-gray-500"
+                        )}
+                        style={{ borderRadius: "12px" }}
                         onClick={() => handleTag(tx, "ignore")}
                       >
                         I
@@ -367,6 +382,75 @@ export function ReviewTab({ onNavigate }: ReviewTabProps) {
           </CardContent>
         </Card>
       )}
+
+      {/* High Confidence Section - Collapsible */}
+      {highConfidence.length > 0 && (
+        <Card style={{ borderRadius: "16px" }}>
+          <CardHeader style={{ padding: "20px 20px 16px" }}>
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-full bg-green-500/20 flex items-center justify-center">
+                <svg className="w-5 h-5 text-green-500" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                </svg>
+              </div>
+              <div>
+                <CardTitle className="text-[18px]" style={{ fontWeight: 600 }}>High Confidence ({highConfidence.length})</CardTitle>
+                <CardDescription className="text-[14px]">These look correct - approve all at once</CardDescription>
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent style={{ padding: "0 20px 20px" }}>
+            <div className="space-y-2">
+              {highConfidence.slice(0, 3).map((tx) => (
+                <div
+                  key={tx.id}
+                  className="flex items-center justify-between p-3 rounded-xl border bg-card"
+                  style={{ borderRadius: "12px" }}
+                >
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <span className="font-medium text-[14px]" style={{ fontWeight: 500 }}>{tx.merchant}</span>
+                      <span className="text-[12px] text-muted-foreground">
+                        {tx.tagReason}
+                      </span>
+                    </div>
+                    <div className="text-[13px] text-muted-foreground">{tx.date}</div>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <span className="font-mono text-[14px]">
+                      {Math.abs(tx.amount).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} {tx.currency}
+                    </span>
+                    <Badge className={getTagColor(tx.tag)}>
+                      {tx.tag === "reimbursable" ? "R" : tx.tag === "personal" ? "P" : "I"}
+                    </Badge>
+                  </div>
+                </div>
+              ))}
+              {highConfidence.length > 3 && (
+                <p className="text-[13px] text-muted-foreground text-center py-2">
+                  +{highConfidence.length - 3} more high-confidence transactions
+                </p>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* View All Transactions */}
+      <div className="flex justify-center">
+        <Button
+          variant="outline"
+          onClick={() => onNavigate("transactions")}
+          size="lg"
+          className="rounded-xl min-h-[44px]"
+          style={{ borderRadius: "14px" }}
+        >
+          <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+          </svg>
+          View all transactions
+        </Button>
+      </div>
 
       {/* Keyboard shortcuts hint */}
       <div className="flex flex-wrap gap-2 text-xs text-muted-foreground justify-center">

@@ -39,7 +39,7 @@ export function Hero() {
         </div>
 
         {/* Headline - Broader positioning */}
-        <h1 className="text-5xl md:text-7xl font-bold tracking-tight mb-6 leading-[1.1]">
+        <h1 className="text-6xl md:text-8xl font-bold tracking-tight mb-8 leading-[1.1] animate-fade-in-up">
           Know where your money goes{" "}
           <br className="hidden md:block" />
           <span className="text-transparent bg-clip-text bg-gradient-to-r from-primary via-cyan-400 to-primary animate-gradient">
@@ -48,7 +48,7 @@ export function Hero() {
         </h1>
 
         {/* Subheadline - Solution */}
-        <p className="text-xl md:text-2xl text-muted-foreground max-w-3xl mx-auto mb-4">
+        <p className="text-2xl md:text-3xl text-muted-foreground max-w-3xl mx-auto mb-6 leading-relaxed animate-fade-in-up" style={{ animationDelay: "200ms", opacity: 0 }}>
           Import any bank statement (CSV/PDF). ClaimPilot turns messy transactions into a clear breakdown, 
           goal-based budget, and a simple monthly action plan — in minutes.
         </p>
@@ -62,11 +62,11 @@ export function Hero() {
         </p>
 
         {/* CTA Buttons */}
-        <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
+        <div className="flex flex-col sm:flex-row gap-6 justify-center items-center animate-fade-in-up" style={{ animationDelay: "400ms", opacity: 0 }}>
           <Link href="/app">
-            <Button size="lg" className="h-14 px-8 text-lg font-semibold animate-pulse-glow">
+            <Button size="lg" className="h-16 px-10 text-xl font-bold animate-pulse-glow-enhanced hover:scale-105 transition-all duration-200 shadow-2xl">
               Try Free (Demo Data)
-              <svg className="ml-2 w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg className="ml-3 w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
               </svg>
             </Button>
@@ -76,9 +76,9 @@ export function Hero() {
             target="_blank"
             rel="noopener noreferrer"
           >
-            <Button size="lg" variant="outline" className="h-14 px-8 text-lg font-semibold">
+            <Button size="lg" variant="outline" className="h-16 px-10 text-xl font-bold border-2 hover:scale-105 transition-all duration-200 shadow-lg">
               Get Lifetime Access ($54)
-              <svg className="ml-2 w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg className="ml-3 w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
               </svg>
             </Button>

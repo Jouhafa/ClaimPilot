@@ -96,13 +96,13 @@ export function CoachChapter({
         transition: "opacity 250ms cubic-bezier(0.4, 0, 0.2, 1), transform 250ms cubic-bezier(0.4, 0, 0.2, 1)",
       }}
     >
-      <div className="flex-1 flex flex-col px-6 py-12 max-w-4xl mx-auto w-full h-screen overflow-y-auto">
+      <div className="flex-1 flex flex-col px-8 py-16 max-w-5xl mx-auto w-full h-screen overflow-y-auto smooth-scroll">
         {/* Main Content */}
         <div className="flex-1 flex flex-col justify-center">
           {/* Hook */}
-          <div className="text-center mb-8">
+          <div className="text-center mb-12 animate-fade-in-up">
             <h1 className={cn(
-              "text-4xl md:text-5xl font-bold mb-4 leading-tight",
+              "text-5xl md:text-6xl lg:text-7xl font-bold mb-6 leading-tight tracking-tight",
               isDark ? "text-white" : "text-gray-900"
             )}>
               {hook}
@@ -111,46 +111,53 @@ export function CoachChapter({
 
           {/* Your Numbers - Visual */}
           <div
-            className="mb-8"
+            className="mb-12 animate-scale-in"
             style={{
-              transform: visualAnimated ? "scale(1)" : "scale(0.98)",
+              transform: visualAnimated ? "scale(1)" : "scale(0.95)",
               filter: visualAnimated ? "blur(0)" : "blur(4px)",
               opacity: visualAnimated ? 1 : 0,
-              transition: "transform 400ms cubic-bezier(0.4, 0, 0.2, 1), filter 400ms cubic-bezier(0.4, 0, 0.2, 1), opacity 400ms cubic-bezier(0.4, 0, 0.2, 1)",
-              transitionDelay: "100ms",
+              transition: "transform 500ms cubic-bezier(0.4, 0, 0.2, 1), filter 500ms cubic-bezier(0.4, 0, 0.2, 1), opacity 500ms cubic-bezier(0.4, 0, 0.2, 1)",
+              transitionDelay: "150ms",
             }}
           >
-            {visual}
+            <div className="transform hover:scale-105 transition-transform duration-300">
+              {visual}
+            </div>
           </div>
 
           {/* What It Means - Bullets */}
           {bullets.length > 0 && (
             <div
-              className="mb-8"
+              className="mb-12"
               style={{
                 opacity: bulletsVisible ? 1 : 0,
-                transform: bulletsVisible ? "translateY(0)" : "translateY(10px)",
-                transition: "opacity 300ms ease-out, transform 300ms ease-out",
-                transitionDelay: "200ms",
+                transform: bulletsVisible ? "translateY(0)" : "translateY(20px)",
+                transition: "opacity 400ms ease-out, transform 400ms ease-out",
+                transitionDelay: "300ms",
               }}
             >
-              <ul className="space-y-4 text-lg md:text-xl">
+              <ul className="space-y-6">
                 {bullets.map((bullet, idx) => (
-                  <li key={idx} className={cn(
-                    "flex items-start gap-3 backdrop-blur-sm rounded-lg p-4 border",
-                    isDark 
-                      ? "bg-white/5 border-white/10 text-white/95" 
-                      : "bg-white/80 border-gray-200/50 text-gray-900 shadow-md"
-                  )}>
-                    <span className={cn(
-                      "w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold shrink-0",
+                  <li 
+                    key={idx} 
+                    className={cn(
+                      "flex items-start gap-5 backdrop-blur-md rounded-xl p-6 border-2 shadow-lg stagger-item",
+                      "hover:scale-[1.02] transition-transform duration-200",
                       isDark 
-                        ? "bg-primary/20 text-primary border border-primary/30" 
-                        : "bg-primary/10 text-primary border border-primary/20"
+                        ? "bg-white/10 border-white/20 text-white/95" 
+                        : "bg-white/90 border-gray-200/60 text-gray-900"
+                    )}
+                    style={{ animationDelay: `${idx * 100}ms` }}
+                  >
+                    <span className={cn(
+                      "w-12 h-12 rounded-full flex items-center justify-center text-xl font-bold shrink-0 shadow-md",
+                      isDark 
+                        ? "bg-primary/30 text-primary border-2 border-primary/40" 
+                        : "bg-primary/15 text-primary border-2 border-primary/30"
                     )}>
                       {idx + 1}
                     </span>
-                    <span className="flex-1">{bullet}</span>
+                    <span className="flex-1 text-xl md:text-2xl font-medium leading-relaxed pt-1">{bullet}</span>
                   </li>
                 ))}
               </ul>
@@ -158,15 +165,16 @@ export function CoachChapter({
           )}
 
           {/* CTA Button and Examples Row */}
-          <div className="mb-8 space-y-6">
+          <div className="mb-12 space-y-8">
             <Button
               ref={ctaButtonRef}
               onClick={() => onNavigate?.(cta.tab)}
               size="lg"
               className={cn(
-                "w-full max-w-md mx-auto h-14 text-lg font-semibold shadow-lg animate-pulse-once",
+                "w-full max-w-lg mx-auto h-20 text-xl font-bold shadow-2xl animate-pulse-glow-enhanced",
+                "hover:scale-105 transition-all duration-200",
                 isDark 
-                  ? "bg-white text-gray-900 hover:bg-white/90" 
+                  ? "bg-white text-gray-900 hover:bg-white/95 hover:shadow-3xl" 
                   : "bg-gray-900 text-white hover:bg-gray-800"
               )}
             >
@@ -174,7 +182,9 @@ export function CoachChapter({
             </Button>
             
             {/* Examples Row */}
-            <ExampleChips examples={examples} onExampleClick={onExampleClick} color={color} />
+            <div className="animate-fade-in-up" style={{ animationDelay: "500ms", opacity: 0 }}>
+              <ExampleChips examples={examples} onExampleClick={onExampleClick} color={color} />
+            </div>
           </div>
         </div>
       </div>

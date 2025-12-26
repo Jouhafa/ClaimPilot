@@ -1,8 +1,9 @@
 import { get, set, del } from "idb-keyval";
 import type { 
   Transaction, Rule, CardSafetyData, ClaimBatch, ImportProfile, MerchantAlias,
-  Goal, Bucket, CategoryRule, RecurringTransaction, IncomeConfig 
+  Goal, Bucket, CategoryRule, RecurringTransaction, IncomeConfig, WrapSnapshot
 } from "./types";
+import type { UserProfile } from "./appState";
 
 const TRANSACTIONS_KEY = "reimburse_transactions";
 const RULES_KEY = "reimburse_rules";
@@ -16,6 +17,8 @@ const BUCKETS_KEY = "claimpilot_buckets";
 const CATEGORY_RULES_KEY = "claimpilot_category_rules";
 const RECURRING_KEY = "claimpilot_recurring";
 const INCOME_KEY = "claimpilot_income";
+const PROFILE_KEY = "claimpilot_profile";
+const WRAPS_KEY = "claimpilot_wraps";
 
 // Transactions
 export async function saveTransactions(transactions: Transaction[]): Promise<void> {
@@ -421,4 +424,57 @@ export async function saveIncomeConfig(config: IncomeConfig): Promise<void> {
 export async function loadIncomeConfig(): Promise<IncomeConfig | null> {
   const data = await get<IncomeConfig>(INCOME_KEY);
   return data || null;
+}
+
+// User Profile
+export async function saveProfile(profile: UserProfile): Promise<void> {
+  await set(PROFILE_KEY, profile);
+}
+
+export async function loadProfile(): Promise<UserProfile | null> {
+  const data = await get<UserProfile>(PROFILE_KEY);
+  return data || null;
+}
+
+export async function deleteUserProfile(): Promise<void> {
+  await del(PROFILE_KEY);
+}
+
+// Wrap Snapshots
+export async function saveWrapSnapshot(wrap: WrapSnapshot): Promise<void> {
+  const wraps = await loadWrapSnapshots();
+  const existingIndex = wraps.findIndex(w => w.id === wrap.id);
+  if (existingIndex >= 0) {
+    wraps[existingIndex] = wrap;
+  } else {
+    wraps.push(wrap);
+  }
+  await set(WRAPS_KEY, wraps);
+}
+
+export async function loadWrapSnapshots(): Promise<WrapSnapshot[]> {
+  const data = await get<WrapSnapshot[]>(WRAPS_KEY);
+  return data || [];
+}
+
+export async function getWrapSnapshot(id: string): Promise<WrapSnapshot | null> {
+  const wraps = await loadWrapSnapshots();
+  return wraps.find(w => w.id === id) || null;
+}
+
+export async function getMonthlyWrap(monthKey: string): Promise<WrapSnapshot | null> {
+  const wraps = await loadWrapSnapshots();
+  return wraps.find(w => w.type === "monthly" && w.monthKey === monthKey) || null;
+}
+
+export async function deleteWrapSnapshot(id: string): Promise<void> {
+  const wraps = await loadWrapSnapshots();
+  const filtered = wraps.filter(w => w.id !== id);
+  await set(WRAPS_KEY, filtered);
+}
+
+export async function updateWrapWatchedAt(id: string, watchedAt: string): Promise<void> {
+  const wraps = await loadWrapSnapshots();
+  const updated = wraps.map(w => w.id === id ? { ...w, watchedAt } : w);
+  await set(WRAPS_KEY, updated);
 }

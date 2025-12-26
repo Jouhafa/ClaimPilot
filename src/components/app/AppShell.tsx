@@ -7,7 +7,9 @@ import { cn } from "@/lib/utils";
 import { AppProvider, useApp } from "@/lib/context";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
 import { ThemeToggle } from "@/components/ThemeToggle";
+import { TopNav } from "./TopNav";
 import { ImportTab } from "./ImportTab";
 import { TransactionsTab } from "./TransactionsTab";
 import { ReviewTab } from "./ReviewTab";
@@ -26,10 +28,17 @@ import { DevTierTester } from "./DevTierTester";
 import { AppTour } from "./AppTour";
 import { DemoModeIndicator } from "./DemoDataLoader";
 import { HomeDashboard } from "./HomeDashboard";
+import { OnboardingWizard } from "./OnboardingWizard";
+import { MonthlyRecapJourney } from "./MonthlyRecapJourney";
+import { CustomWrapBuilder } from "./CustomWrapBuilder";
+import { RecapsLibrary } from "./RecapsLibrary";
+import { SettingsTab } from "./SettingsTab";
 import { getAutoTagStats } from "@/lib/autoTagger";
-import type { LicenseTier } from "@/lib/types";
+import type { LicenseTier, WrapSnapshot } from "@/lib/types";
+import { generateMonthlyWrap } from "@/lib/wrapComputation";
+import { saveWrapSnapshot } from "@/lib/storage";
 
-type TabId = "home" | "import" | "review" | "transactions" | "reimbursements" | "recurring" | "analytics" | "goals" | "buckets" | "action-plan" | "investments" | "card-safety" | "export" | "playbook";
+type TabId = "hub" | "review" | "plan" | "coach" | "import" | "transactions" | "reimbursements" | "recurring" | "analytics" | "goals" | "buckets" | "action-plan" | "investments" | "card-safety" | "export" | "learn" | "create-wrap" | "recaps" | "settings";
 
 interface NavItem {
   id: TabId;
@@ -45,69 +54,13 @@ interface NavGroup {
   items: NavItem[];
 }
 
-// Month selector component
-function MonthSelector({ selectedMonth, onMonthChange }: { 
-  selectedMonth: Date; 
-  onMonthChange: (date: Date) => void;
-}) {
-  const formatMonth = (date: Date) => {
-    return date.toLocaleDateString("en-US", { month: "short", year: "numeric" });
-  };
-
-  const goToPrevMonth = () => {
-    const prev = new Date(selectedMonth);
-    prev.setMonth(prev.getMonth() - 1);
-    onMonthChange(prev);
-  };
-
-  const goToNextMonth = () => {
-    const next = new Date(selectedMonth);
-    next.setMonth(next.getMonth() + 1);
-    onMonthChange(next);
-  };
-
-  const isCurrentMonth = () => {
-    const now = new Date();
-    return selectedMonth.getMonth() === now.getMonth() && 
-           selectedMonth.getFullYear() === now.getFullYear();
-  };
-
-  return (
-    <div className="flex items-center gap-1 bg-muted/50 rounded-lg px-1">
-      <button
-        onClick={goToPrevMonth}
-        className="p-1.5 hover:bg-muted rounded transition-colors"
-        title="Previous month"
-      >
-        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-        </svg>
-      </button>
-      <span className="px-2 py-1 text-sm font-medium min-w-[90px] text-center">
-        {formatMonth(selectedMonth)}
-      </span>
-      <button
-        onClick={goToNextMonth}
-        disabled={isCurrentMonth()}
-        className={cn(
-          "p-1.5 rounded transition-colors",
-          isCurrentMonth() ? "opacity-30 cursor-not-allowed" : "hover:bg-muted"
-        )}
-        title="Next month"
-      >
-        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-        </svg>
-      </button>
-    </div>
-  );
-}
-
 function AppContent() {
-  const [activeTab, setActiveTab] = useState<TabId>("home");
+  const [activeTab, setActiveTab] = useState<TabId>("hub");
+  const [showMonthlyRecap, setShowMonthlyRecap] = useState(false);
+  const [wrapSnapshot, setWrapSnapshot] = useState<WrapSnapshot | null>(null);
+  const [wrapMonthKey, setWrapMonthKey] = useState<string | undefined>(undefined);
   const [selectedMonth, setSelectedMonth] = useState(() => new Date());
-  const [sidebarOpen, setSidebarOpen] = useState(false);
-  const { transactions, goals, tier, hasAccess } = useApp();
+  const { transactions, goals, buckets, tier, hasAccess } = useApp();
   const searchParams = useSearchParams();
 
   // Check if dev mode is enabled via ?dev=1
@@ -124,22 +77,22 @@ function AppContent() {
       // Single key shortcuts
       switch (e.key.toLowerCase()) {
         case "h":
-          setActiveTab("home");
+          setActiveTab("hub");
+          break;
+        case "r":
+          setActiveTab("review");
+          break;
+        case "p":
+          setActiveTab("plan");
+          break;
+        case "c":
+          setActiveTab("coach");
           break;
         case "i":
           setActiveTab("import");
           break;
-        case "r":
-          setActiveTab("reimbursements");
-          break;
         case "t":
           setActiveTab("transactions");
-          break;
-        case "a":
-          setActiveTab("analytics");
-          break;
-        case "g":
-          setActiveTab("goals");
           break;
       }
     };
@@ -173,10 +126,9 @@ function AppContent() {
     t => t.tag === "reimbursable" && t.status === "draft"
   ).length;
 
-  // Navigation callback - also closes sidebar on mobile
+  // Navigation callback
   const handleNavigate = useCallback((tab: string) => {
     setActiveTab(tab as TabId);
-    setSidebarOpen(false);
   }, []);
 
   // Check if nav item is unlocked
@@ -194,199 +146,296 @@ function AppContent() {
     }
   };
 
-  // Grouped navigation structure with progressive unlock
-  const navGroups: NavGroup[] = [
+  // Wio-style minimal navigation: Hub, Review, Plan, Coach
+  const primaryNavItems: NavItem[] = [
     {
-      label: "",
-      items: [
-        {
-          id: "home",
-          label: "Home",
-          unlockCondition: "always",
-          icon: (
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
-            </svg>
-          ),
-        },
-        {
-          id: "import",
-          label: "Import",
-          unlockCondition: "always",
-          icon: (
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
-            </svg>
-          ),
-        },
-      ],
+      id: "hub",
+      label: "Hub",
+      unlockCondition: "always",
+      icon: (
+        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
+        </svg>
+      ),
     },
     {
-      label: "MANAGE",
-      items: [
-        {
-          id: "review",
-          label: "Tag & Categorize",
-          badge: reviewBadgeCount > 0 ? reviewBadgeCount : undefined,
-          unlockCondition: "hasTransactions",
-          icon: (
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A2 2 0 013 12V7a4 4 0 014-4z" />
-            </svg>
-          ),
-        },
-        {
-          id: "transactions",
-          label: "All Transactions",
-          unlockCondition: "hasTransactions",
-          icon: (
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
-            </svg>
-          ),
-        },
-      ],
+      id: "review",
+      label: "Review",
+      badge: reviewBadgeCount > 0 ? reviewBadgeCount : undefined,
+      unlockCondition: "hasTransactions",
+      icon: (
+        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
+        </svg>
+      ),
     },
     {
-      label: "TRACK",
-      items: [
-        {
-          id: "reimbursements",
-          label: "Reimbursements",
-          badge: draftReimbursementsCount > 0 ? draftReimbursementsCount : undefined,
-          requiredTier: "paid",
-          unlockCondition: "hasReviewed",
-          icon: (
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
-            </svg>
-          ),
-        },
-        {
-          id: "card-safety",
-          label: "Card Safety",
-          requiredTier: "paid",
-          unlockCondition: "hasReviewed",
-          icon: (
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
-            </svg>
-          ),
-        },
-        {
-          id: "recurring",
-          label: "Subscriptions",
-          unlockCondition: "hasTransactions",
-          icon: (
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-            </svg>
-          ),
-        },
-      ],
+      id: "plan",
+      label: "Plan",
+      unlockCondition: "always",
+      icon: (
+        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
+        </svg>
+      ),
     },
     {
-      label: "PLAN",
-      items: [
-        {
-          id: "analytics",
-          label: "Spending Insights",
-          unlockCondition: "hasTransactions",
-          icon: (
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-            </svg>
-          ),
-        },
-        {
-          id: "goals",
-          label: "Goals",
-          requiredTier: "paid",
-          unlockCondition: "hasReviewed",
-          icon: (
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z" />
-            </svg>
-          ),
-        },
-        {
-          id: "buckets",
-          label: "Budget Buckets",
-          requiredTier: "paid",
-          unlockCondition: "hasGoals",
-          icon: (
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4m0 5c0 2.21-3.582 4-8 4s-8-1.79-8-4" />
-            </svg>
-          ),
-        },
-      ],
-    },
-    {
-      label: "PREMIUM",
-      items: [
-        {
-          id: "action-plan",
-          label: "Monthly Playbook",
-          requiredTier: "premium",
-          unlockCondition: "hasGoals",
-          icon: (
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
-            </svg>
-          ),
-        },
-        {
-          id: "investments",
-          label: "Investment Policy",
-          requiredTier: "premium",
-          unlockCondition: "hasGoals",
-          icon: (
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
-            </svg>
-          ),
-        },
-      ],
-    },
-    {
-      label: "LEARN",
-      items: [
-        {
-          id: "playbook",
-          label: "Coach",
-          unlockCondition: "always",
-          icon: (
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
-            </svg>
-          ),
-        },
-      ],
-    },
-    {
-      label: "",
-      items: [
-        {
-          id: "export",
-          label: "Export & Settings",
-          unlockCondition: "hasTransactions",
-          icon: (
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-            </svg>
-          ),
-        },
-      ],
+      id: "coach",
+      label: "Coach",
+      unlockCondition: "always",
+      icon: (
+        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+        </svg>
+      ),
     },
   ];
 
+  const moreNavItems: NavItem[] = [
+    {
+      id: "transactions",
+      label: "Transactions",
+      unlockCondition: "hasTransactions",
+      icon: (
+        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+        </svg>
+      ),
+    },
+    {
+      id: "buckets",
+      label: "Buckets",
+      requiredTier: "paid",
+      unlockCondition: "hasGoals",
+      icon: (
+        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4m0 5c0 2.21-3.582 4-8 4s-8-1.79-8-4" />
+        </svg>
+      ),
+    },
+    {
+      id: "analytics",
+      label: "Insights",
+      unlockCondition: "hasTransactions",
+      icon: (
+        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+        </svg>
+      ),
+    },
+    {
+      id: "reimbursements",
+      label: "Reimbursements",
+      badge: draftReimbursementsCount > 0 ? draftReimbursementsCount : undefined,
+      requiredTier: "paid",
+      unlockCondition: "hasReviewed",
+      icon: (
+        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
+        </svg>
+      ),
+    },
+    {
+      id: "recurring",
+      label: "Subscriptions",
+      unlockCondition: "hasTransactions",
+      icon: (
+        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+        </svg>
+      ),
+    },
+    {
+      id: "action-plan",
+      label: "Monthly Playbook",
+      requiredTier: "premium",
+      unlockCondition: "hasGoals",
+      icon: (
+        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
+        </svg>
+      ),
+    },
+    {
+      id: "investments",
+      label: "Investment Policy",
+      requiredTier: "premium",
+      unlockCondition: "hasGoals",
+      icon: (
+        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
+        </svg>
+      ),
+    },
+    {
+      id: "create-wrap",
+      label: "Create Wrap",
+      unlockCondition: "hasTransactions",
+      icon: (
+        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+        </svg>
+      ),
+    },
+    {
+      id: "recaps",
+      label: "Recaps",
+      unlockCondition: "hasTransactions",
+      icon: (
+        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+        </svg>
+      ),
+    },
+    {
+      id: "export",
+      label: "Export & Settings",
+      unlockCondition: "hasTransactions",
+      icon: (
+        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+        </svg>
+      ),
+    },
+  ];
+
+  // Handle import success - trigger monthly recap journey
+  const handleImportSuccess = useCallback(() => {
+    // Generate wrap for current month
+    const now = new Date();
+    const monthKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+    setWrapMonthKey(monthKey);
+    setShowMonthlyRecap(true);
+  }, []);
+
+  const handleRecapComplete = useCallback(() => {
+    setShowMonthlyRecap(false);
+    setWrapSnapshot(null);
+    setWrapMonthKey(undefined);
+    handleNavigate("hub");
+  }, [handleNavigate]);
+
+  // Handle wrap playback from saved snapshot
+  const handlePlayWrap = useCallback((snapshot: WrapSnapshot) => {
+    setWrapSnapshot(snapshot);
+    setShowMonthlyRecap(true);
+  }, []);
+
   const renderContent = () => {
     switch (activeTab) {
-      case "home":
-        return <HomeDashboard onNavigate={handleNavigate} />;
+      case "hub":
+        return <HomeDashboard onNavigate={handleNavigate} onPlayWrap={handlePlayWrap} />;
       case "import":
-        return <ImportTab onImportSuccess={() => handleNavigate("review")} />;
+        return <ImportTab onImportSuccess={handleImportSuccess} />;
+      case "plan":
+        return (
+          <div className="space-y-4">
+            <div>
+              <h1 className="text-[34px] font-bold tracking-tight" style={{ fontWeight: 700, lineHeight: 1.35 }}>Plan</h1>
+              <p className="text-[15px] text-muted-foreground mt-2" style={{ lineHeight: 1.6 }}>Goals, Buckets, and Monthly Planning</p>
+            </div>
+            {/* One-screen summary */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <PaywallGate
+                feature="goals"
+                requiredTier="paid"
+                title="Financial Goals"
+                description="Set goals, track progress, and get feasibility calculations"
+              >
+                <Card className="card-lift">
+                  <CardContent className="p-6">
+                    <div className="flex items-start justify-between mb-4">
+                      <div>
+                        <h2 className="text-[18px] font-semibold mb-1" style={{ fontWeight: 600 }}>Goals</h2>
+                        <p className="text-[13px] text-muted-foreground">{goals.length} active goals</p>
+                      </div>
+                      <button
+                        onClick={() => handleNavigate("goals")}
+                        className="text-[13px] text-muted-foreground hover:text-foreground flex items-center gap-1 transition-colors"
+                      >
+                        View details
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                        </svg>
+                      </button>
+                    </div>
+                    {goals.length > 0 ? (
+                      <div className="space-y-2">
+                        {goals.slice(0, 2).map((goal) => (
+                          <div key={goal.id} className="p-3 rounded-lg bg-muted/50">
+                            <div className="flex items-center justify-between mb-1">
+                              <span className="text-[14px] font-medium" style={{ fontWeight: 500 }}>{goal.name}</span>
+                              <span className="text-[13px] text-muted-foreground">
+                                {((goal.currentAmount / goal.targetAmount) * 100).toFixed(0)}%
+                              </span>
+                            </div>
+                            <div className="h-1.5 bg-muted rounded-full overflow-hidden">
+                              <div 
+                                className="h-full bg-primary progress-animated"
+                                style={{ width: `${Math.min(100, (goal.currentAmount / goal.targetAmount) * 100)}%` }}
+                              />
+                            </div>
+                          </div>
+                        ))}
+                        {goals.length > 2 && (
+                          <p className="text-[12px] text-muted-foreground text-center">
+                            +{goals.length - 2} more goals
+                          </p>
+                        )}
+                      </div>
+                    ) : (
+                      <p className="text-[13px] text-muted-foreground">No goals set yet</p>
+                    )}
+                  </CardContent>
+                </Card>
+              </PaywallGate>
+              <PaywallGate
+                feature="buckets"
+                requiredTier="paid"
+                title="Budget Buckets"
+                description="Organize your money into Needs, Wants, and Goals"
+              >
+                <Card className="card-lift">
+                  <CardContent className="p-6">
+                    <div className="flex items-start justify-between mb-4">
+                      <div>
+                        <h2 className="text-[18px] font-semibold mb-1" style={{ fontWeight: 600 }}>Buckets</h2>
+                        <p className="text-[13px] text-muted-foreground">{buckets.length} buckets configured</p>
+                      </div>
+                      <button
+                        onClick={() => handleNavigate("buckets")}
+                        className="text-[13px] text-muted-foreground hover:text-foreground flex items-center gap-1 transition-colors"
+                      >
+                        View details
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                        </svg>
+                      </button>
+                    </div>
+                    {buckets.length > 0 ? (
+                      <div className="space-y-2">
+                        {buckets.slice(0, 3).map((bucket) => (
+                          <div key={bucket.id} className="flex items-center justify-between p-2 rounded-lg bg-muted/50">
+                            <div className="flex items-center gap-2">
+                              <div 
+                                className="w-3 h-3 rounded-full"
+                                style={{ backgroundColor: bucket.color }}
+                              />
+                              <span className="text-[14px] font-medium" style={{ fontWeight: 500 }}>{bucket.name}</span>
+                            </div>
+                            <span className="text-[13px] text-muted-foreground">{bucket.targetPercentage}%</span>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-[13px] text-muted-foreground">No buckets configured yet</p>
+                    )}
+                  </CardContent>
+                </Card>
+              </PaywallGate>
+            </div>
+          </div>
+        );
       case "review":
         return <ReviewTab onNavigate={handleNavigate} />;
       case "transactions":
@@ -473,226 +522,128 @@ function AppContent() {
         );
       case "export":
         return <ExportTab />;
-      case "playbook":
+      case "create-wrap":
+        return (
+          <CustomWrapBuilder
+            onComplete={(wrapId) => {
+              // Load and play the wrap
+              import("@/lib/storage").then(({ getWrapSnapshot }) => {
+                getWrapSnapshot(wrapId).then((snapshot) => {
+                  if (snapshot) {
+                    handlePlayWrap(snapshot);
+                  }
+                });
+              });
+            }}
+          />
+        );
+      case "recaps":
+        return <RecapsLibrary onPlayWrap={handlePlayWrap} onNavigate={handleNavigate} />;
+      case "settings":
+        return <SettingsTab onNavigate={handleNavigate} />;
+      case "learn":
+      case "coach":
         return <CoachTab onNavigate={handleNavigate} />;
       default:
-        return <HomeDashboard onNavigate={handleNavigate} />;
+        return <HomeDashboard onNavigate={handleNavigate} onPlayWrap={handlePlayWrap} />;
     }
   };
 
   return (
-    <div className="min-h-screen flex">
-      {/* Mobile backdrop */}
-      {sidebarOpen && (
-        <div 
-          className="fixed inset-0 z-30 bg-black/50 md:hidden transition-opacity"
-          onClick={() => setSidebarOpen(false)}
-          aria-hidden="true"
-        />
-      )}
-      
-      {/* Sidebar */}
-      <aside className={cn(
-        "fixed inset-y-0 left-0 z-40 w-64 bg-sidebar border-r border-sidebar-border flex flex-col",
-        "transform transition-transform duration-300 ease-in-out",
-        "md:relative md:translate-x-0",
-        sidebarOpen ? "translate-x-0" : "-translate-x-full"
-      )}>
-        {/* Logo */}
-        <div className="p-6 border-b border-sidebar-border">
-          <div className="flex items-center justify-between mb-2">
-            <Link href="/" className="flex items-center gap-2 hover:opacity-80 transition-opacity">
-              <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center">
-                <svg className="w-5 h-5 text-primary-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
-                </svg>
-              </div>
-              <span className="font-semibold text-sidebar-foreground">ClaimPilot</span>
-            </Link>
-            <div className="flex items-center gap-2">
-              <ThemeToggle />
-              {/* Close button - mobile only */}
-              <button
-                onClick={() => setSidebarOpen(false)}
-                className="md:hidden p-1.5 rounded-lg hover:bg-muted transition-colors"
-                aria-label="Close menu"
-              >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
-            </div>
-          </div>
-          <DemoModeIndicator />
-        </div>
-
-        {/* Navigation */}
-        <nav className="flex-1 p-4 overflow-y-auto">
-          {navGroups.map((group, groupIndex) => {
-            // Check if any items in this group are unlocked
-            const hasUnlockedItems = group.items.some(item => isNavItemUnlocked(item.unlockCondition));
-            
-            // Hide entire group if nothing is unlocked (except first group)
-            if (!hasUnlockedItems && groupIndex > 0) return null;
-
-            return (
-              <div key={groupIndex} className={group.label ? "mb-4" : "mb-2"}>
-                {group.label && hasUnlockedItems && (
-                  <p className="text-[10px] font-semibold text-sidebar-foreground/40 uppercase tracking-wider px-3 mb-2">
-                    {group.label}
-                  </p>
-                )}
-                <ul className="space-y-0.5">
-                  {group.items.map((item) => {
-                    const isUnlocked = isNavItemUnlocked(item.unlockCondition);
-                    
-                    // Don't show locked items at all (progressive disclosure)
-                    if (!isUnlocked) return null;
-
-                    const itemFeature = item.id === "reimbursements" ? "reimbursement-tracker" 
-                      : item.id === "investments" ? "investment-policy"
-                      : item.id === "action-plan" ? "action-plan"
-                      : item.id;
-                    const isPaywallLocked = item.requiredTier && !hasAccess(itemFeature);
-                    const isActive = activeTab === item.id;
-                    
-                    return (
-                      <li key={item.id}>
-                        <button
-                          onClick={() => {
-                            setActiveTab(item.id);
-                            setSidebarOpen(false);
-                          }}
-                          className={cn(
-                            "w-full flex items-center gap-3 px-3 py-2 rounded-lg text-left transition-all duration-200",
-                            isActive
-                              ? "bg-primary/10 text-primary shadow-sm"
-                              : "text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground",
-                            item.id === "home" && isActive && "bg-primary text-primary-foreground"
-                          )}
-                        >
-                          <span className={cn(
-                            "transition-colors",
-                            isActive ? (item.id === "home" ? "text-primary-foreground" : "text-primary") : "text-sidebar-foreground/50"
-                          )}>
-                            {item.icon}
-                          </span>
-                          <span className="font-medium flex-1 text-sm">{item.label}</span>
-                          {item.badge && item.badge > 0 && (
-                            <span className={cn(
-                              "px-1.5 py-0.5 text-[10px] font-bold rounded-full min-w-[20px] text-center",
-                              isActive 
-                                ? "bg-primary-foreground/20 text-primary-foreground" 
-                                : "bg-amber-500/20 text-amber-500"
-                            )}>
-                              {item.badge}
-                            </span>
-                          )}
-                          {isPaywallLocked && item.requiredTier && (
-                            <Badge 
-                              variant="outline" 
-                              className={cn(
-                                "text-[9px] px-1.5 py-0 h-4",
-                                item.requiredTier === "premium" 
-                                  ? "bg-purple-500/10 text-purple-500 border-purple-500/20" 
-                                  : "bg-amber-500/10 text-amber-500 border-amber-500/20"
-                              )}
-                            >
-                              {item.requiredTier === "premium" ? "PRO" : "PAID"}
-                            </Badge>
-                          )}
-                        </button>
-                      </li>
-                    );
-                  })}
-                </ul>
-                {groupIndex < navGroups.length - 1 && group.label && hasUnlockedItems && (
-                  <div className="h-px bg-sidebar-border/50 mt-4" />
-                )}
-              </div>
-            );
-          })}
-        </nav>
-
-        {/* Keyboard shortcuts hint */}
-        <div className="px-4 py-2 border-t border-sidebar-border/50">
-          <p className="text-[10px] text-sidebar-foreground/40 text-center">
-            Press <kbd className="px-1 py-0.5 bg-muted rounded text-[9px]">H</kbd> Home · 
-            <kbd className="px-1 py-0.5 bg-muted rounded text-[9px] ml-1">T</kbd> Transactions · 
-            <kbd className="px-1 py-0.5 bg-muted rounded text-[9px] ml-1">R</kbd> Reimburse
-          </p>
-        </div>
-
-        {/* Footer */}
-        <div className="p-4 border-t border-sidebar-border">
-          <div className="p-3 rounded-lg bg-gradient-to-br from-primary/10 to-transparent text-xs text-sidebar-foreground/70">
-            <div className="flex items-center gap-2 mb-1">
-              <svg className="w-4 h-4 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-              </svg>
-              <p className="font-medium text-sidebar-foreground">100% Local</p>
-            </div>
-            <p>Your data never leaves this device</p>
-          </div>
-        </div>
-      </aside>
+    <div className="min-h-screen flex flex-col">
+      {/* Top Navigation Bar */}
+      <TopNav 
+        activeTab={activeTab} 
+        onNavigate={handleNavigate}
+        selectedMonth={selectedMonth}
+        onMonthChange={setSelectedMonth}
+        onPlayWrap={(monthKey) => {
+          setWrapMonthKey(monthKey);
+          setWrapSnapshot(null);
+          setShowMonthlyRecap(true);
+        }}
+      />
 
       {/* Main content */}
-      <main className="flex-1 overflow-auto bg-background md:ml-0">
-        {/* Header with month selector - hidden for Coach */}
-        {activeTab !== "playbook" && (
-          <header className="sticky top-0 z-10 bg-background/80 backdrop-blur-sm border-b border-border px-4 md:px-8 py-3">
-          <div className="flex items-center justify-between max-w-6xl mx-auto">
-            <div className="flex items-center gap-3">
-              {/* Hamburger menu button - mobile only */}
-              <button
-                onClick={() => setSidebarOpen(true)}
-                className="md:hidden p-2 -ml-2 rounded-lg hover:bg-muted transition-colors"
-                aria-label="Open menu"
-              >
-                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-                </svg>
-              </button>
-              <MonthSelector 
-                selectedMonth={selectedMonth} 
-                onMonthChange={setSelectedMonth} 
-              />
-            </div>
-            <div className="flex items-center gap-4 text-sm text-muted-foreground">
-              <span className="hidden sm:inline">{transactions.length} transactions</span>
-              <span className="sm:hidden">{transactions.length}</span>
-            </div>
-          </div>
-        </header>
-        )}
-        {/* Coach page - full screen with sidebar toggle */}
-        {activeTab === "playbook" ? (
-          <div className="relative">
-            {/* Sidebar toggle button for Coach page */}
-            <button
-              onClick={() => setSidebarOpen(!sidebarOpen)}
-              className="fixed top-4 left-4 z-50 p-2 rounded-lg bg-background/80 backdrop-blur-sm border border-border hover:bg-muted transition-colors shadow-lg"
-              aria-label="Toggle sidebar"
-            >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-              </svg>
-            </button>
+      <main className="flex-1 overflow-hidden bg-background">
+        {/* Coach page - full screen */}
+        {activeTab === "coach" || activeTab === "learn" ? (
+          <div className="relative h-screen overflow-hidden">
             {renderContent()}
           </div>
         ) : (
-          <div className="p-4 md:p-8 max-w-6xl mx-auto">
-            {renderContent()}
+          <div className="h-full overflow-y-auto smooth-scroll">
+            <div className="min-h-screen p-4 md:p-6 lg:p-8 max-w-[1120px] mx-auto pb-20 md:pb-8">
+              {renderContent()}
+            </div>
           </div>
         )}
       </main>
       
+      {/* Mobile Bottom Navigation */}
+      <nav className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-background/95 backdrop-blur-sm border-t border-border">
+        <div className="grid grid-cols-4 h-16">
+          {primaryNavItems.map((item) => {
+            const isUnlocked = isNavItemUnlocked(item.unlockCondition);
+            if (!isUnlocked) return null;
+            
+            const isActive = activeTab === item.id;
+            
+            return (
+              <button
+                key={item.id}
+                onClick={() => handleNavigate(item.id)}
+                className={cn(
+                  "relative flex flex-col items-center justify-center gap-1 transition-colors",
+                  isActive ? "text-primary" : "text-muted-foreground"
+                )}
+              >
+                <span className={cn(
+                  "transition-transform",
+                  isActive ? "scale-110" : ""
+                )}>
+                  {item.icon}
+                </span>
+                <span className="text-[10px] font-medium">{item.label}</span>
+                {item.badge && item.badge > 0 && (
+                  <span className="absolute top-1 right-1/2 translate-x-1/2 w-4 h-4 rounded-full bg-amber-500 text-white text-[8px] flex items-center justify-center">
+                    {item.badge}
+                  </span>
+                )}
+              </button>
+            );
+          })}
+        </div>
+        {/* Floating Import Button */}
+        <button
+          onClick={() => handleNavigate("import" as TabId)}
+          className="absolute -top-6 left-1/2 -translate-x-1/2 w-14 h-14 rounded-full bg-primary text-primary-foreground shadow-lg flex items-center justify-center hover:bg-primary/90 transition-colors"
+          aria-label="Import"
+        >
+          <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+          </svg>
+        </button>
+      </nav>
+
       {/* Dev tier tester - only shows with ?dev=1 */}
       {isDevMode && <DevTierTester />}
       
       {/* Guided app tour */}
       <AppTour onNavigate={handleNavigate} currentTab={activeTab} />
+      
+      {/* Onboarding wizard */}
+      <OnboardingWizard onComplete={() => {}} />
+      
+      {/* Monthly Recap Journey */}
+      {showMonthlyRecap && (
+        <MonthlyRecapJourney 
+          onComplete={handleRecapComplete}
+          onSkip={handleRecapComplete}
+          wrapSnapshot={wrapSnapshot}
+          monthKey={wrapMonthKey}
+        />
+      )}
     </div>
   );
 }

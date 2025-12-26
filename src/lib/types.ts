@@ -395,3 +395,91 @@ export const TIER_FEATURES: Record<LicenseTier, string[]> = {
 export function hasFeatureAccess(tier: LicenseTier, feature: string): boolean {
   return TIER_FEATURES[tier].includes(feature);
 }
+
+// Wrap (Monthly Recap) Types
+export type WrapType = "monthly" | "custom";
+export type WrapScope = "all" | "reimbursements" | "personal";
+
+export interface TopMove {
+  id: string;
+  title: string;
+  description: string;
+  action: string; // e.g., "review", "reimbursements", "goals"
+  actionParams?: Record<string, any>;
+  timeEstimate: string; // e.g., "5 min"
+  priority: "high" | "medium" | "low";
+}
+
+export interface WrapData {
+  // Cover slide
+  heroNumber: number;
+  heroLabel: string;
+  
+  // Snapshot
+  totalSpent: number;
+  totalSaved: number;
+  totalReimbursable: number;
+  isOnTrack: boolean;
+  
+  // Top categories (max 5)
+  topCategories: Array<{
+    category: TransactionCategory;
+    amount: number;
+    percentage: number;
+  }>;
+  
+  // Changes vs last month (top 3)
+  monthOverMonthChanges: Array<{
+    label: string;
+    change: number;
+    changePercent: number;
+    isIncrease: boolean;
+  }>;
+  
+  // Recurring/subscriptions
+  recurringSummary: {
+    total: number;
+    count: number;
+    topItems: Array<{
+      merchant: string;
+      amount: number;
+      frequency: string;
+    }>;
+  };
+  
+  // Reimbursements pipeline
+  reimbursementsPipeline: {
+    draft: number;
+    submitted: number;
+    paid: number;
+    total: number;
+  };
+  
+  // Flags
+  flags: Array<{
+    type: "low_confidence" | "untagged" | "unusual";
+    count: number;
+    message: string;
+  }>;
+  
+  // Top 3 moves
+  top3Moves: TopMove[];
+  
+  currency: string;
+}
+
+export interface WrapSnapshot {
+  id: string;
+  type: WrapType;
+  monthKey?: string; // YYYY-MM for monthly wraps
+  period: {
+    start: string; // ISO date
+    end: string; // ISO date
+  };
+  scope?: WrapScope;
+  createdAt: string;
+  watchedAt?: string;
+  title: string; // e.g., "Dec 2025 Wrap" or "Wrap · Oct 15–Dec 23"
+  wrapData: WrapData;
+  version: string; // e.g., "1.0"
+}

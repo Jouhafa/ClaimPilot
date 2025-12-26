@@ -13,6 +13,7 @@ import { CardSafetyMeter } from "./CardSafetyMeter";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { ScrollIndicator } from "@/components/ui/scroll-indicator";
 
 interface StoryCard {
   id: string;
@@ -698,17 +699,17 @@ export function CoachTab({ onNavigate }: CoachTabProps) {
       </div>
 
       {/* Navigation Buttons - Always Visible */}
-      <div className="absolute bottom-6 left-0 right-0 z-20 px-4">
-        <div className="flex items-center justify-between max-w-4xl mx-auto">
+      <div className="absolute bottom-8 left-0 right-0 z-20 px-8">
+        <div className="flex items-center justify-between max-w-5xl mx-auto">
           <Button
             onClick={() => setCurrentChapter(Math.max(0, currentChapter - 1))}
             disabled={currentChapter === 0}
             variant="outline"
             size="lg"
-            className="bg-background/90 backdrop-blur-sm border-border"
+            className="bg-background/95 backdrop-blur-md border-2 border-border shadow-lg hover:scale-105 transition-all duration-200 h-16 text-lg font-semibold"
             aria-label="Previous chapter"
           >
-            <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg className="w-6 h-6 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
             </svg>
             Previous
@@ -719,11 +720,11 @@ export function CoachTab({ onNavigate }: CoachTabProps) {
             disabled={currentChapter === chapters.length - 1}
             variant="outline"
             size="lg"
-            className="bg-background/90 backdrop-blur-sm border-border"
+            className="bg-background/95 backdrop-blur-md border-2 border-border shadow-lg hover:scale-105 transition-all duration-200 h-16 text-lg font-semibold"
             aria-label="Next chapter"
           >
             Next
-            <svg className="w-5 h-5 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg className="w-6 h-6 ml-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
             </svg>
           </Button>

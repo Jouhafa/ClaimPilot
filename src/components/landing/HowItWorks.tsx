@@ -55,11 +55,11 @@ export function HowItWorks() {
       <div className="absolute inset-0 radial-overlay opacity-50" />
       
       <div className="relative max-w-5xl mx-auto">
-        <div className="text-center mb-16">
-          <h2 className="text-3xl md:text-4xl font-bold mb-4">
+        <div className="text-center mb-20 animate-fade-in-up">
+          <h2 className="text-4xl md:text-5xl font-bold mb-6 tracking-tight">
             How it works
           </h2>
-          <p className="text-muted-foreground text-lg max-w-2xl mx-auto">
+          <p className="text-muted-foreground text-xl md:text-2xl max-w-2xl mx-auto leading-relaxed">
             From statement chaos to financial clarity — upgrade as you need more
           </p>
         </div>
@@ -88,19 +88,19 @@ export function HowItWorks() {
                     </span>
                   </div>
                   
-                  <h3 className="text-xl font-semibold mb-2">{step.title}</h3>
+                  <h3 className="text-2xl font-semibold mb-3">{step.title}</h3>
                   
                   {/* Tier badge */}
                   {step.tier && (
                     <Badge 
                       variant="outline" 
-                      className={`mb-3 ${step.tier.color}`}
+                      className={`mb-4 text-base px-3 py-1 ${step.tier.color}`}
                     >
                       {step.tier.label}
                     </Badge>
                   )}
                   
-                  <p className="text-muted-foreground text-sm leading-relaxed">
+                  <p className="text-muted-foreground text-lg leading-relaxed">
                     {step.description}
                   </p>
                 </div>

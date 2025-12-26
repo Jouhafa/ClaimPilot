@@ -36,7 +36,10 @@ import {
   loadLicense,
   saveLicense,
   clearLicense,
+  loadProfile,
+  saveProfile,
 } from "./storage";
+import type { UserProfile } from "./appState";
 
 interface AppContextType {
   // Data
@@ -51,6 +54,7 @@ interface AppContextType {
   incomeConfig: IncomeConfig | null;
   cardSafety: CardSafetyData | null;
   license: License | null;
+  profile: UserProfile | null;
   isLoading: boolean;
   
   // License functions
@@ -113,6 +117,9 @@ interface AppContextType {
   // Card safety
   setCardSafety: (data: CardSafetyData) => Promise<void>;
   
+  // Profile functions
+  setProfile: (profile: UserProfile) => Promise<void>;
+  
   refreshData: () => Promise<void>;
 }
 
@@ -130,6 +137,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [incomeConfig, setIncomeConfigState] = useState<IncomeConfig | null>(null);
   const [cardSafety, setCardSafetyState] = useState<CardSafetyData | null>(null);
   const [license, setLicenseState] = useState<License | null>(null);
+  const [profile, setProfileState] = useState<UserProfile | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   
   // Computed tier
@@ -155,6 +163,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         loadedIncomeConfig,
         loadedCardSafety,
         loadedLicense,
+        loadedProfile,
       ] = await Promise.all([
         loadTransactions(),
         loadRules(),
@@ -167,6 +176,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         loadIncomeConfig(),
         loadCardSafety(),
         loadLicense(),
+        loadProfile(),
       ]);
       setTransactions(loadedTransactions);
       setRules(loadedRules);
@@ -179,6 +189,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       setIncomeConfigState(loadedIncomeConfig);
       setCardSafetyState(loadedCardSafety);
       setLicenseState(loadedLicense);
+      setProfileState(loadedProfile);
     } catch (error) {
       console.error("Failed to load data:", error);
     } finally {
@@ -457,6 +468,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setCardSafetyState(data);
   };
 
+  // Profile functions
+  const setProfile = async (newProfile: UserProfile) => {
+    await saveProfile(newProfile);
+    setProfileState(newProfile);
+  };
+
   // License functions
   const setLicense = async (newLicense: License | null) => {
     if (newLicense) {
@@ -512,6 +529,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         incomeConfig,
         cardSafety,
         license,
+        profile,
         isLoading,
         tier,
         hasAccess,
@@ -551,6 +569,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         setRecurring,
         setIncomeConfig,
         setCardSafety,
+        setProfile,
         refreshData,
       }}
     >
