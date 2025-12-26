@@ -42,10 +42,10 @@ export function ExampleChips({ examples, onExampleClick, color }: ExampleChipsPr
   const colors = colorMap[color] || colorMap.blue;
 
   return (
-    <div className="w-full px-4 py-6">
-      <div className="mb-4">
+    <div className="w-full">
+      <div className="mb-3">
         <p className={cn(
-          "text-sm font-semibold uppercase tracking-wide drop-shadow-sm",
+          "text-sm font-semibold uppercase tracking-wide",
           isDark ? "text-white/90" : "text-gray-900/90"
         )}>See an example</p>
       </div>

@@ -26,19 +26,30 @@ export type TransactionCategory =
 // Spending type classification
 export type SpendingType = "fixed" | "variable" | "income" | "transfer";
 
+// Statement type classification
+export type StatementType = "enbd_debit" | "enbd_credit" | "unknown";
+
+// Transaction kind classification
+export type TransactionKind = "spend" | "income" | "transfer" | "reimbursement" | "unknown";
+
 export interface Transaction {
   id: string;
-  date: string; // ISO format
+  date: string; // ISO format (transaction date)
+  postingDate?: string; // ISO format (for credit card statements)
   merchant: string;
   description: string;
-  amount: number; // negative for debits, positive for credits
+  amount: number; // negative for debits/outflow, positive for credits/inflow
   currency: string;
+  balance?: number; // Account balance after transaction (for debit statements)
   tag: TransactionTag;
   status?: ReimbursementStatus; // only for reimbursable
   note?: string;
   batchId?: string; // Reference to ClaimBatch
   category?: TransactionCategory;
   spendingType?: SpendingType; // fixed, variable, income, transfer
+  kind?: TransactionKind; // spend, income, transfer, reimbursement, unknown
+  sourceDocType?: StatementType; // enbd_debit, enbd_credit, unknown
+  sourceFileName?: string; // Original file name
   isRecurring?: boolean; // Detected as recurring/subscription
   recurringFrequency?: "weekly" | "monthly" | "quarterly" | "yearly";
   // Split transaction support

@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
+import { useTheme } from "next-themes";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
@@ -11,6 +12,9 @@ interface ReimbursementPipelineProps {
 }
 
 export function ReimbursementPipeline({ transactions }: ReimbursementPipelineProps) {
+  const { theme } = useTheme();
+  const isDark = theme === "dark" || (theme === "system" && typeof window !== "undefined" && window.matchMedia("(prefers-color-scheme: dark)").matches);
+  
   const pipeline = useMemo(() => {
     const reimbursables = transactions.filter(t => t.tag === "reimbursable" && !t.parentId);
     
@@ -46,9 +50,12 @@ export function ReimbursementPipeline({ transactions }: ReimbursementPipelinePro
   }
 
   return (
-    <Card className="bg-white/10 border-white/20 backdrop-blur-sm">
+    <Card className={cn(
+      "backdrop-blur-sm",
+      isDark ? "bg-white/10 border-white/20" : "bg-white/90 border-gray-200 shadow-lg"
+    )}>
       <CardHeader>
-        <CardTitle className="text-base text-white">Reimbursement Pipeline</CardTitle>
+        <CardTitle className={cn("text-base", isDark ? "text-white" : "text-gray-900")}>Reimbursement Pipeline</CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
         {/* Pipeline Bar */}
@@ -84,20 +91,35 @@ export function ReimbursementPipeline({ transactions }: ReimbursementPipelinePro
 
         {/* Details */}
         <div className="grid grid-cols-3 gap-3">
-          <div className="text-center p-2 rounded-lg bg-amber-500/20 border border-amber-500/30">
-            <p className="text-xs text-white/80 mb-1">Draft</p>
-            <p className="text-sm font-semibold text-white">{pipeline.draft.count}</p>
-            <p className="text-xs text-white/70">{pipeline.draft.total.toFixed(0)} AED</p>
+          <div className={cn(
+            "text-center p-2 rounded-lg border",
+            isDark 
+              ? "bg-amber-500/20 border-amber-500/30" 
+              : "bg-amber-50 border-amber-200"
+          )}>
+            <p className={cn("text-xs mb-1", isDark ? "text-white/80" : "text-amber-900")}>Draft</p>
+            <p className={cn("text-sm font-semibold", isDark ? "text-white" : "text-gray-900")}>{pipeline.draft.count}</p>
+            <p className={cn("text-xs", isDark ? "text-white/70" : "text-gray-600")}>{pipeline.draft.total.toFixed(0)} AED</p>
           </div>
-          <div className="text-center p-2 rounded-lg bg-blue-500/20 border border-blue-500/30">
-            <p className="text-xs text-white/80 mb-1">Submitted</p>
-            <p className="text-sm font-semibold text-white">{pipeline.submitted.count}</p>
-            <p className="text-xs text-white/70">{pipeline.submitted.total.toFixed(0)} AED</p>
+          <div className={cn(
+            "text-center p-2 rounded-lg border",
+            isDark 
+              ? "bg-blue-500/20 border-blue-500/30" 
+              : "bg-blue-50 border-blue-200"
+          )}>
+            <p className={cn("text-xs mb-1", isDark ? "text-white/80" : "text-blue-900")}>Submitted</p>
+            <p className={cn("text-sm font-semibold", isDark ? "text-white" : "text-gray-900")}>{pipeline.submitted.count}</p>
+            <p className={cn("text-xs", isDark ? "text-white/70" : "text-gray-600")}>{pipeline.submitted.total.toFixed(0)} AED</p>
           </div>
-          <div className="text-center p-2 rounded-lg bg-green-500/20 border border-green-500/30">
-            <p className="text-xs text-white/80 mb-1">Paid</p>
-            <p className="text-sm font-semibold text-white">{pipeline.paid.count}</p>
-            <p className="text-xs text-white/70">{pipeline.paid.total.toFixed(0)} AED</p>
+          <div className={cn(
+            "text-center p-2 rounded-lg border",
+            isDark 
+              ? "bg-green-500/20 border-green-500/30" 
+              : "bg-green-50 border-green-200"
+          )}>
+            <p className={cn("text-xs mb-1", isDark ? "text-white/80" : "text-green-900")}>Paid</p>
+            <p className={cn("text-sm font-semibold", isDark ? "text-white" : "text-gray-900")}>{pipeline.paid.count}</p>
+            <p className={cn("text-xs", isDark ? "text-white/70" : "text-gray-600")}>{pipeline.paid.total.toFixed(0)} AED</p>
           </div>
         </div>
       </CardContent>

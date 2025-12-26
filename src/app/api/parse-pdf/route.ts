@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { GoogleGenerativeAI } from "@google/generative-ai";
+import { GoogleGenAI } from "@google/genai";
+import { improveMerchantName } from "@/lib/descriptionLabeler";
 
 export async function POST(request: NextRequest) {
   try {
@@ -19,9 +20,8 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Initialize Gemini client
-    const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+    // Initialize Gemini client with new API format
+    const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
     const prompt = `Extract all financial transactions from this bank statement text. Return ONLY a valid JSON array of transactions with this exact structure:
 
@@ -36,9 +36,10 @@ export async function POST(request: NextRequest) {
 ]
 
 Rules:
-- date: Convert to YYYY-MM-DD format
+- date: Convert to YYYY-MM-DD format (e.g., "23/12/2025" → "2025-12-23")
 - merchant: Extract the business name from description (e.g., "CAREEM QUIK ABU DHABI ARE" → "CAREEM QUIK")
-- amount: Negative for debits/charges, positive for credits/payments. Look for "CR" suffix for credits.
+- amount: Negative for debits/charges, positive for credits/payments. Look for "CR" suffix or Credit column for credits.
+- The statement may have a table format with Date, Description, Debit, Credit, and Balance columns
 - Skip header rows, summaries, and non-transaction lines
 - Only include actual transactions with dates and amounts
 - Return ONLY the JSON array, no markdown formatting, no explanations
@@ -46,8 +47,11 @@ Rules:
 Bank Statement Text:
 ${text.substring(0, 20000)}`;
 
-    const result = await model.generateContent(prompt);
-    const responseText = result.response.text();
+    const response = await ai.models.generateContent({
+      model: "gemini-2.5-flash",
+      contents: prompt,
+    });
+    const responseText = response.text || "";
     
     // Try to parse the JSON response
     let transactions;
@@ -95,12 +99,5 @@ ${text.substring(0, 20000)}`;
 
 function extractMerchant(description: string): string {
   if (!description) return "Unknown";
-  
-  return description
-    .replace(/\s+ARE$/, "")
-    .replace(/\s+AE$/, "")
-    .replace(/ABU DHABI$/, "")
-    .replace(/DUBAI$/, "")
-    .trim()
-    .substring(0, 40) || "Unknown";
+  return improveMerchantName(description);
 }

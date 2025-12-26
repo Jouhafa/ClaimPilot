@@ -1,4 +1,4 @@
-import { GoogleGenerativeAI } from "@google/generative-ai";
+import { GoogleGenAI } from "@google/genai";
 import type { MonthlyNarrativeRequest, MonthlyNarrativeResponse } from "../types.js";
 
 /**
@@ -14,8 +14,7 @@ export async function generateMonthlyNarrative(
     throw new Error("GEMINI_API_KEY not configured");
   }
 
-  const genAI = new GoogleGenerativeAI(apiKey);
-  const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+  const ai = new GoogleGenAI({ apiKey });
 
   const prompt = `You are a financial advisor analyzing a monthly spending report. Generate a helpful, conversational narrative (2-3 paragraphs) that:
 
@@ -37,8 +36,11 @@ Write in a friendly, professional tone. Be specific about amounts and percentage
 Return ONLY the narrative text, no markdown formatting, no JSON wrapper.`;
 
   try {
-    const result = await model.generateContent(prompt);
-    const narrative = result.response.text().trim();
+    const response = await ai.models.generateContent({
+      model: "gemini-2.5-flash",
+      contents: prompt,
+    });
+    const narrative = (response.text || "").trim();
 
     return {
       narrative: narrative,
@@ -50,4 +52,5 @@ Return ONLY the narrative text, no markdown formatting, no JSON wrapper.`;
     );
   }
 }
+
 

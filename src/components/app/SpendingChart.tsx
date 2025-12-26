@@ -1,7 +1,9 @@
 "use client";
 
 import { useMemo } from "react";
+import { useTheme } from "next-themes";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { cn } from "@/lib/utils";
 import { getCategoryBreakdown } from "@/lib/categories";
 import type { Transaction } from "@/lib/types";
 
@@ -10,6 +12,9 @@ interface SpendingChartProps {
 }
 
 export function SpendingChart({ transactions }: SpendingChartProps) {
+  const { theme } = useTheme();
+  const isDark = theme === "dark" || (theme === "system" && typeof window !== "undefined" && window.matchMedia("(prefers-color-scheme: dark)").matches);
+  
   const categoryBreakdown = useMemo(() => {
     return getCategoryBreakdown(transactions).slice(0, 5);
   }, [transactions]);
@@ -71,9 +76,12 @@ export function SpendingChart({ transactions }: SpendingChartProps) {
   };
 
   return (
-    <Card className="bg-white/10 border-white/20 backdrop-blur-sm">
+    <Card className={cn(
+      "backdrop-blur-sm",
+      isDark ? "bg-white/10 border-white/20" : "bg-white/90 border-gray-200 shadow-lg"
+    )}>
       <CardHeader>
-        <CardTitle className="text-base text-white">Top Categories</CardTitle>
+        <CardTitle className={cn("text-base", isDark ? "text-white" : "text-gray-900")}>Top Categories</CardTitle>
       </CardHeader>
       <CardContent>
         <div className="flex items-center gap-6">
@@ -85,7 +93,7 @@ export function SpendingChart({ transactions }: SpendingChartProps) {
                   key={seg.category}
                   d={createArcPath(seg.startAngle, seg.endAngle, false)}
                   fill={seg.color}
-                  stroke="white"
+                  stroke={isDark ? "white" : "rgba(0, 0, 0, 0.1)"}
                   strokeWidth="2"
                   className="transition-all hover:opacity-80"
                 />
@@ -95,14 +103,14 @@ export function SpendingChart({ transactions }: SpendingChartProps) {
                 cx={centerX}
                 cy={centerY}
                 r={innerRadius}
-                fill="rgba(255, 255, 255, 0.1)"
+                fill={isDark ? "rgba(255, 255, 255, 0.1)" : "rgba(0, 0, 0, 0.05)"}
               />
               {/* Center text */}
               <text
                 x={centerX}
                 y={centerY - 5}
                 textAnchor="middle"
-                className="text-xs font-semibold fill-white"
+                className={cn("text-xs font-semibold", isDark ? "fill-white" : "fill-gray-900")}
               >
                 Top 5
               </text>
@@ -110,7 +118,7 @@ export function SpendingChart({ transactions }: SpendingChartProps) {
                 x={centerX}
                 y={centerY + 10}
                 textAnchor="middle"
-                className="text-xs fill-white/80"
+                className={cn("text-xs", isDark ? "fill-white/80" : "fill-gray-600")}
               >
                 Categories
               </text>
@@ -126,11 +134,11 @@ export function SpendingChart({ transactions }: SpendingChartProps) {
                     className="w-3 h-3 rounded-full"
                     style={{ backgroundColor: cat.color }}
                   />
-                  <span className="text-sm text-white">{cat.label}</span>
+                  <span className={cn("text-sm", isDark ? "text-white" : "text-gray-900")}>{cat.label}</span>
                 </div>
                 <div className="text-right">
-                  <span className="text-sm font-semibold text-white">{cat.percentage.toFixed(0)}%</span>
-                  <span className="text-xs text-white/70 ml-1">
+                  <span className={cn("text-sm font-semibold", isDark ? "text-white" : "text-gray-900")}>{cat.percentage.toFixed(0)}%</span>
+                  <span className={cn("text-xs ml-1", isDark ? "text-white/70" : "text-gray-600")}>
                     ({cat.total.toFixed(0)} AED)
                   </span>
                 </div>

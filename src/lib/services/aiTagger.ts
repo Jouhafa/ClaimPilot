@@ -1,4 +1,4 @@
-import { GoogleGenerativeAI } from "@google/generative-ai";
+import { GoogleGenAI } from "@google/genai";
 import type { TransactionTag, TransactionCategory } from "@/lib/types";
 
 interface SuggestTagsRequest {
@@ -27,8 +27,7 @@ export async function suggestTagsWithAI(
     throw new Error("GEMINI_API_KEY not configured");
   }
 
-  const genAI = new GoogleGenerativeAI(apiKey);
-  const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+  const ai = new GoogleGenAI({ apiKey });
 
   const prompt = `Analyze this financial transaction and suggest:
 1. Tag: "reimbursable" (business expense), "personal" (personal expense), or "ignore" (not relevant)
@@ -54,8 +53,11 @@ Consider:
 - Use context clues from merchant name and description`;
 
   try {
-    const result = await model.generateContent(prompt);
-    const responseText = result.response.text();
+    const response = await ai.models.generateContent({
+      model: "gemini-2.5-flash",
+      contents: prompt,
+    });
+    const responseText = response.text || "";
     
     // Parse JSON response
     let suggestion: any;
@@ -96,4 +98,5 @@ Consider:
     );
   }
 }
+
 

@@ -96,13 +96,13 @@ export function CoachChapter({
         transition: "opacity 250ms cubic-bezier(0.4, 0, 0.2, 1), transform 250ms cubic-bezier(0.4, 0, 0.2, 1)",
       }}
     >
-      <div className="flex-1 flex flex-col justify-between px-6 py-12 max-w-4xl mx-auto w-full min-h-screen">
+      <div className="flex-1 flex flex-col px-6 py-12 max-w-4xl mx-auto w-full h-screen overflow-y-auto">
         {/* Main Content */}
         <div className="flex-1 flex flex-col justify-center">
           {/* Hook */}
           <div className="text-center mb-8">
             <h1 className={cn(
-              "text-4xl md:text-5xl font-bold mb-4 drop-shadow-lg leading-tight",
+              "text-4xl md:text-5xl font-bold mb-4 leading-tight",
               isDark ? "text-white" : "text-gray-900"
             )}>
               {hook}
@@ -142,7 +142,14 @@ export function CoachChapter({
                       ? "bg-white/5 border-white/10 text-white/95" 
                       : "bg-white/80 border-gray-200/50 text-gray-900 shadow-md"
                   )}>
-                    <span className="text-primary text-2xl mt-0.5 font-bold">→</span>
+                    <span className={cn(
+                      "w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold shrink-0",
+                      isDark 
+                        ? "bg-primary/20 text-primary border border-primary/30" 
+                        : "bg-primary/10 text-primary border border-primary/20"
+                    )}>
+                      {idx + 1}
+                    </span>
                     <span className="flex-1">{bullet}</span>
                   </li>
                 ))}
@@ -150,8 +157,8 @@ export function CoachChapter({
             </div>
           )}
 
-          {/* CTA Button */}
-          <div className="mb-8">
+          {/* CTA Button and Examples Row */}
+          <div className="mb-8 space-y-6">
             <Button
               ref={ctaButtonRef}
               onClick={() => onNavigate?.(cta.tab)}
@@ -165,11 +172,11 @@ export function CoachChapter({
             >
               {cta.text} →
             </Button>
+            
+            {/* Examples Row */}
+            <ExampleChips examples={examples} onExampleClick={onExampleClick} color={color} />
           </div>
         </div>
-
-        {/* Examples Row at Bottom */}
-        <ExampleChips examples={examples} onExampleClick={onExampleClick} color={color} />
       </div>
 
     </div>

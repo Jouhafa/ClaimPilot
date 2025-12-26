@@ -101,6 +101,35 @@ export async function parsePDFWithAI(text: string): Promise<{
 }
 
 /**
+ * Parse a single statement page using AI (for parallel processing)
+ */
+export async function parseStatementPageWithAI(
+  statementType: string,
+  pageText: string,
+  pageIndex: number,
+  currency: string = "AED"
+): Promise<{
+  success: boolean;
+  transactions: Array<{
+    date: string;
+    description: string;
+    merchant: string;
+    amount: number;
+    currency: string;
+  }>;
+  count: number;
+}> {
+  return callBackend(
+    "/api/ai/parse-statement-page",
+    {
+      method: "POST",
+      body: JSON.stringify({ statementType, pageText, pageIndex, currency }),
+    }
+    // No fallback - caller should handle errors
+  );
+}
+
+/**
  * Get AI tag suggestions (optional enhancement)
  */
 export async function suggestTagsWithAI(

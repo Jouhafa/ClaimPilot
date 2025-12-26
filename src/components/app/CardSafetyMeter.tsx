@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
+import { useTheme } from "next-themes";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
@@ -13,6 +14,9 @@ interface CardSafetyMeterProps {
 }
 
 export function CardSafetyMeter({ cardSafety, pendingReimbursements }: CardSafetyMeterProps) {
+  const { theme } = useTheme();
+  const isDark = theme === "dark" || (theme === "system" && typeof window !== "undefined" && window.matchMedia("(prefers-color-scheme: dark)").matches);
+  
   const meterData = useMemo(() => {
     if (!cardSafety?.dueDate) return null;
 
@@ -57,12 +61,13 @@ export function CardSafetyMeter({ cardSafety, pendingReimbursements }: CardSafet
 
   return (
     <Card className={cn(
-      "bg-white/10 border-white/20 backdrop-blur-sm",
+      "backdrop-blur-sm",
+      isDark ? "bg-white/10 border-white/20" : "bg-white/90 border-gray-200 shadow-lg",
       meterData.isUrgent && "border-amber-500/50"
     )}>
       <CardHeader>
         <div className="flex items-center justify-between">
-          <CardTitle className="text-base text-white">Card Safety</CardTitle>
+          <CardTitle className={cn("text-base", isDark ? "text-white" : "text-gray-900")}>Card Safety</CardTitle>
           {meterData.isUrgent && (
             <Badge variant="destructive" className="text-xs">Urgent</Badge>
           )}
@@ -72,36 +77,44 @@ export function CardSafetyMeter({ cardSafety, pendingReimbursements }: CardSafet
         {/* Meter */}
         <div className="space-y-2">
           <div className="flex items-center justify-between text-sm">
-            <span className="text-white/80">Pay at least</span>
-            <span className="font-semibold text-white">{meterData.minToPay.toFixed(0)} AED</span>
+            <span className={isDark ? "text-white/80" : "text-gray-700"}>Pay at least</span>
+            <span className={cn("font-semibold", isDark ? "text-white" : "text-gray-900")}>{meterData.minToPay.toFixed(0)} AED</span>
           </div>
           <Progress value={meterData.progress} className="h-3" />
-          <div className="flex items-center justify-between text-xs text-white/70">
+          <div className={cn("flex items-center justify-between text-xs", isDark ? "text-white/70" : "text-gray-600")}>
             <span>Paid: {meterData.paymentsMade.toFixed(0)} AED</span>
             <span>Due: {meterData.dueDate} ({meterData.daysUntilDue} days)</span>
           </div>
         </div>
 
         {/* Details */}
-        <div className="space-y-2 p-3 bg-white/10 rounded-lg border border-white/20">
+        <div className={cn(
+          "space-y-2 p-3 rounded-lg border",
+          isDark ? "bg-white/10 border-white/20" : "bg-gray-50 border-gray-200"
+        )}>
           <div className="flex items-center justify-between text-sm">
-            <span className="text-white/80">Statement balance</span>
-            <span className="font-semibold text-white">{meterData.statementBalance.toFixed(0)} AED</span>
+            <span className={isDark ? "text-white/80" : "text-gray-700"}>Statement balance</span>
+            <span className={cn("font-semibold", isDark ? "text-white" : "text-gray-900")}>{meterData.statementBalance.toFixed(0)} AED</span>
           </div>
           <div className="flex items-center justify-between text-sm">
-            <span className="text-white/80">Payments made</span>
-            <span className="font-semibold text-green-300">{meterData.paymentsMade.toFixed(0)} AED</span>
+            <span className={isDark ? "text-white/80" : "text-gray-700"}>Payments made</span>
+            <span className={cn("font-semibold", isDark ? "text-green-300" : "text-green-600")}>{meterData.paymentsMade.toFixed(0)} AED</span>
           </div>
           {pendingReimbursements > 0 && (
             <div className="flex items-center justify-between text-sm">
-              <span className="text-white/80">Pending reimbursements</span>
-              <span className="font-semibold text-amber-300">{pendingReimbursements.toFixed(0)} AED</span>
+              <span className={isDark ? "text-white/80" : "text-gray-700"}>Pending reimbursements</span>
+              <span className={cn("font-semibold", isDark ? "text-amber-300" : "text-amber-600")}>{pendingReimbursements.toFixed(0)} AED</span>
             </div>
           )}
-          <div className="flex items-center justify-between text-sm font-semibold pt-2 border-t border-white/20">
-            <span className="text-white">Remaining to pay</span>
+          <div className={cn(
+            "flex items-center justify-between text-sm font-semibold pt-2 border-t",
+            isDark ? "border-white/20" : "border-gray-200"
+          )}>
+            <span className={isDark ? "text-white" : "text-gray-900"}>Remaining to pay</span>
             <span className={cn(
-              meterData.remaining > 0 && meterData.isUrgent ? "text-red-300" : "text-white"
+              meterData.remaining > 0 && meterData.isUrgent 
+                ? isDark ? "text-red-300" : "text-red-600"
+                : isDark ? "text-white" : "text-gray-900"
             )}>
               {meterData.remaining.toFixed(0)} AED
             </span>
