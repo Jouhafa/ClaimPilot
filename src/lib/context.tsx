@@ -5,7 +5,7 @@ import { v4 as uuidv4 } from "uuid";
 import type { 
   Transaction, Rule, ClaimBatch, MerchantAlias, CardSafetyData,
   Goal, Bucket, CategoryRule, RecurringTransaction, IncomeConfig,
-  License, LicenseTier 
+  License, LicenseTier, Account, Budget
 } from "./types";
 import { hasFeatureAccess } from "./types";
 import {
@@ -38,6 +38,16 @@ import {
   clearLicense,
   loadProfile,
   saveProfile,
+  loadAccounts,
+  saveAccounts,
+  addAccount as addAccountToStorage,
+  updateAccount as updateAccountInStorage,
+  deleteAccount as deleteAccountFromStorage,
+  loadBudgets,
+  saveBudgets,
+  addBudget as addBudgetToStorage,
+  updateBudget as updateBudgetInStorage,
+  deleteBudget as deleteBudgetFromStorage,
 } from "./storage";
 import type { UserProfile } from "./appState";
 
@@ -55,6 +65,9 @@ interface AppContextType {
   cardSafety: CardSafetyData | null;
   license: License | null;
   profile: UserProfile | null;
+  accounts: Account[];
+  selectedAccountId: string | null;
+  budgets: Budget[];
   isLoading: boolean;
   
   // License functions
@@ -120,6 +133,17 @@ interface AppContextType {
   // Profile functions
   setProfile: (profile: UserProfile) => Promise<void>;
   
+  // Account functions
+  addAccount: (account: Account) => Promise<void>;
+  updateAccount: (id: string, updates: Partial<Account>) => Promise<void>;
+  deleteAccount: (id: string) => Promise<void>;
+  setSelectedAccount: (accountId: string | null) => void;
+  
+  // Budget functions
+  addBudget: (budget: Budget) => Promise<void>;
+  updateBudget: (id: string, updates: Partial<Budget>) => Promise<void>;
+  deleteBudget: (id: string) => Promise<void>;
+  
   refreshData: () => Promise<void>;
 }
 
@@ -138,6 +162,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [cardSafety, setCardSafetyState] = useState<CardSafetyData | null>(null);
   const [license, setLicenseState] = useState<License | null>(null);
   const [profile, setProfileState] = useState<UserProfile | null>(null);
+  const [accounts, setAccounts] = useState<Account[]>([]);
+  const [selectedAccountId, setSelectedAccountId] = useState<string | null>(null);
+  const [budgets, setBudgets] = useState<Budget[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   
   // Computed tier
@@ -164,6 +191,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         loadedCardSafety,
         loadedLicense,
         loadedProfile,
+        loadedAccounts,
+        loadedBudgets,
       ] = await Promise.all([
         loadTransactions(),
         loadRules(),
@@ -177,6 +206,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         loadCardSafety(),
         loadLicense(),
         loadProfile(),
+        loadAccounts(),
+        loadBudgets(),
       ]);
       setTransactions(loadedTransactions);
       setRules(loadedRules);
@@ -190,12 +221,22 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       setCardSafetyState(loadedCardSafety);
       setLicenseState(loadedLicense);
       setProfileState(loadedProfile);
+      setAccounts(loadedAccounts);
+      setBudgets(loadedBudgets);
+      
+      // Set default selected account if none selected and accounts exist
+      if (!selectedAccountId && loadedAccounts.length > 0) {
+        const activeAccount = loadedAccounts.find(a => a.isActive) || loadedAccounts[0];
+        if (activeAccount) {
+          setSelectedAccountId(activeAccount.id);
+        }
+      }
     } catch (error) {
       console.error("Failed to load data:", error);
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [selectedAccountId]);
 
   useEffect(() => {
     refreshData();
@@ -474,6 +515,51 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setProfileState(newProfile);
   };
 
+  // Account functions
+  const addAccount = async (account: Account) => {
+    const newAccounts = await addAccountToStorage(account);
+    setAccounts(newAccounts);
+    // Auto-select if it's the first account
+    if (newAccounts.length === 1) {
+      setSelectedAccountId(account.id);
+    }
+  };
+
+  const updateAccount = async (id: string, updates: Partial<Account>) => {
+    const updated = await updateAccountInStorage(id, updates);
+    setAccounts(updated);
+  };
+
+  const deleteAccount = async (id: string) => {
+    const updated = await deleteAccountFromStorage(id);
+    setAccounts(updated);
+    // Clear selection if deleted account was selected
+    if (selectedAccountId === id) {
+      const remaining = updated.filter(a => a.isActive);
+      setSelectedAccountId(remaining.length > 0 ? remaining[0].id : null);
+    }
+  };
+
+  const setSelectedAccount = (accountId: string | null) => {
+    setSelectedAccountId(accountId);
+  };
+
+  // Budget functions
+  const addBudget = async (budget: Budget) => {
+    const newBudgets = await addBudgetToStorage(budget);
+    setBudgets(newBudgets);
+  };
+
+  const updateBudget = async (id: string, updates: Partial<Budget>) => {
+    const updated = await updateBudgetInStorage(id, updates);
+    setBudgets(updated);
+  };
+
+  const deleteBudget = async (id: string) => {
+    const updated = await deleteBudgetFromStorage(id);
+    setBudgets(updated);
+  };
+
   // License functions
   const setLicense = async (newLicense: License | null) => {
     if (newLicense) {
@@ -530,6 +616,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         cardSafety,
         license,
         profile,
+        accounts,
+        selectedAccountId,
+        budgets,
         isLoading,
         tier,
         hasAccess,
@@ -570,6 +659,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         setIncomeConfig,
         setCardSafety,
         setProfile,
+        addAccount,
+        updateAccount,
+        deleteAccount,
+        setSelectedAccount,
+        addBudget,
+        updateBudget,
+        deleteBudget,
         refreshData,
       }}
     >

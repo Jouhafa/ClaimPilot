@@ -3,6 +3,8 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useApp } from "@/lib/context";
+import { PWAInstallButton } from "./PWAInstallButton";
+import { AccountManagementTab } from "./AccountManagementTab";
 
 interface SettingsTabProps {
   onNavigate?: (tab: string) => void;
@@ -112,6 +114,17 @@ export function SettingsTab({ onNavigate }: SettingsTabProps) {
         </CardContent>
       </Card>
 
+      {/* Account Management */}
+      <Card style={{ borderRadius: "16px" }}>
+        <CardHeader style={{ padding: "20px 20px 16px" }}>
+          <CardTitle className="text-[18px]" style={{ fontWeight: 600 }}>Account Management</CardTitle>
+          <CardDescription className="text-[14px]">Manage your accounts and track balances across all accounts</CardDescription>
+        </CardHeader>
+        <CardContent style={{ padding: "20px" }}>
+          <AccountManagementTab />
+        </CardContent>
+      </Card>
+
       {/* Buckets & Goals */}
       <Card style={{ borderRadius: "16px" }}>
         <CardHeader style={{ padding: "20px 20px 16px" }}>
@@ -138,6 +151,23 @@ export function SettingsTab({ onNavigate }: SettingsTabProps) {
                 Manage
               </Button>
             </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* PWA Install */}
+      <Card style={{ borderRadius: "16px" }}>
+        <CardHeader style={{ padding: "20px 20px 16px" }}>
+          <CardTitle className="text-[18px]" style={{ fontWeight: 600 }}>Install App</CardTitle>
+          <CardDescription className="text-[14px]">Install ClaimPilot as a Progressive Web App</CardDescription>
+        </CardHeader>
+        <CardContent style={{ padding: "0 20px 20px" }}>
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-[15px] font-medium" style={{ fontWeight: 500 }}>Add to Home Screen</p>
+              <p className="text-[13px] text-muted-foreground">Install for quick access and offline use</p>
+            </div>
+            <PWAInstallButton />
           </div>
         </CardContent>
       </Card>

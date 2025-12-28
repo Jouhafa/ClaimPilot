@@ -11,6 +11,7 @@ import { MonthlyPlanCard } from "./MonthlyPlanCard";
 import { MonthGlance } from "./MonthGlance";
 import { SetupChecklist } from "./SetupChecklist";
 import { AlertsPanel } from "./AlertsPanel";
+import { ROICard } from "./ROICard";
 import { getMonthlyWrap } from "@/lib/storage";
 import type { WrapSnapshot } from "@/lib/types";
 
@@ -207,6 +208,11 @@ export function HomeDashboard({ onNavigate, onPlayWrap }: HomeDashboardProps) {
           </div>
           <MonthGlance />
         </div>
+      )}
+
+      {/* ROI Card */}
+      {appState.state !== "NEEDS_IMPORT" && (
+        <ROICard onNavigate={onNavigate} />
       )}
 
       {/* This Month's Wrap Card */}

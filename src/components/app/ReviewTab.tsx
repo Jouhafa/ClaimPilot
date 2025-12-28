@@ -317,24 +317,29 @@ export function ReviewTab({ onNavigate }: ReviewTabProps) {
               {needsReview.map((tx) => (
                 <div
                   key={tx.id}
-                  className="flex items-center justify-between p-4 rounded-xl border bg-card hover:bg-muted/30 transition-colors"
+                  className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 p-4 rounded-xl border bg-card hover:bg-muted/30 transition-colors"
                   style={{ borderRadius: "16px" }}
                 >
                   <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 mb-1">
-                      <span className="font-medium text-[15px]" style={{ fontWeight: 500 }}>{tx.merchant}</span>
+                    <div className="flex items-center gap-2 mb-1 flex-wrap">
+                      <span className="font-medium text-[15px] break-words" style={{ fontWeight: 500 }}>{tx.merchant}</span>
                       {tx.tagReason && (
-                        <span className={cn("text-[12px]", getConfidenceColor(tx.tagConfidence))}>
+                        <span className={cn("text-[12px] whitespace-nowrap", getConfidenceColor(tx.tagConfidence))}>
                           {tx.tagReason}
                         </span>
                       )}
                     </div>
-                    <div className="text-[13px] text-muted-foreground">
-                      {tx.date} • {tx.description.substring(0, 50)}{tx.description.length > 50 ? "..." : ""}
+                    <div className="text-[13px] text-muted-foreground break-words">
+                      <span className="whitespace-nowrap">{tx.date}</span> • <span className="break-words">{tx.description}</span>
+                    </div>
+                    <div className="mt-2 md:hidden">
+                      <span className="font-mono text-[14px] font-semibold">
+                        {Math.abs(tx.amount).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} {tx.currency}
+                      </span>
                     </div>
                   </div>
-                  <div className="flex items-center gap-3 ml-4">
-                    <span className="font-mono text-[15px] font-semibold">
+                  <div className="flex items-center gap-2 md:gap-3 flex-shrink-0">
+                    <span className="hidden md:inline font-mono text-[15px] font-semibold whitespace-nowrap">
                       {Math.abs(tx.amount).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} {tx.currency}
                     </span>
                     <div className="flex gap-2">

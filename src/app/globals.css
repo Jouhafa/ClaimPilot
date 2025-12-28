@@ -219,6 +219,16 @@
     @apply border-border outline-ring/50;
   }
   
+  /* Prevent modal "twitching" by reserving space for scrollbar
+   * When modals open, body scroll is locked (overflow: hidden), which causes
+   * the scrollbar to disappear and creates a layout shift. scrollbar-gutter: stable
+   * reserves space for the scrollbar even when it's not visible, preventing
+   * the content from jumping horizontally when modals open/close.
+   */
+  html {
+    scrollbar-gutter: stable;
+  }
+  
   body {
     @apply bg-background text-foreground;
     font-size: var(--font-size-body);
@@ -1023,4 +1033,34 @@
 
 .scrollable-content::-webkit-scrollbar-thumb:hover {
   background: var(--text-muted);
+}
+
+/* Mobile text overflow fixes */
+@media (max-width: 768px) {
+  .table-container {
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: thin;
+  }
+  
+  /* Better word breaking for mobile */
+  .break-words {
+    word-break: break-word;
+    overflow-wrap: break-word;
+    hyphens: auto;
+  }
+  
+  /* Line clamp utility */
+  .line-clamp-1 {
+    display: -webkit-box;
+    -webkit-line-clamp: 1;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+  
+  .line-clamp-2 {
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
 }

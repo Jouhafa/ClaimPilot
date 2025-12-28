@@ -10,12 +10,15 @@ import { RulesManager } from "./RulesManager";
 import { SplitTransactionModal } from "./SplitTransactionModal";
 import { DuplicateDetector } from "./DuplicateDetector";
 import { MerchantManager } from "./MerchantManager";
+import { ManualTransactionTab } from "./ManualTransactionTab";
 import { v4 as uuidv4 } from "uuid";
 import { findDuplicates, calculateCurrencyTotals } from "@/lib/types";
 import type { Transaction, TransactionTag } from "@/lib/types";
+import { cn } from "@/lib/utils";
 
 export function TransactionsTab() {
   const { transactions, updateTransaction, deleteTransaction, isLoading, rules, addRule, splitTransaction } = useApp();
+  const [activeView, setActiveView] = useState<"all" | "manual">("all");
   const [search, setSearch] = useState("");
   const [tagFilter, setTagFilter] = useState<TransactionTag | "all">("all");
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -334,6 +337,47 @@ export function TransactionsTab() {
     );
   }
 
+  // If manual transactions view, show that component
+  if (activeView === "manual") {
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center justify-between flex-wrap gap-4">
+          <div>
+            <h1 className="text-3xl font-bold tracking-tight">Transactions</h1>
+            <p className="text-muted-foreground mt-2">
+              Manage all your transactions
+            </p>
+          </div>
+        </div>
+        <div className="flex gap-2 border-b">
+          <button
+            onClick={() => setActiveView("all")}
+            className={cn(
+              "px-4 py-2 text-sm font-medium border-b-2 transition-colors",
+              activeView === "all"
+                ? "border-primary text-primary"
+                : "border-transparent text-muted-foreground hover:text-foreground"
+            )}
+          >
+            All Transactions
+          </button>
+          <button
+            onClick={() => setActiveView("manual")}
+            className={cn(
+              "px-4 py-2 text-sm font-medium border-b-2 transition-colors",
+              activeView === "manual"
+                ? "border-primary text-primary"
+                : "border-transparent text-muted-foreground hover:text-foreground"
+            )}
+          >
+            Manual Transactions
+          </button>
+        </div>
+        <ManualTransactionTab />
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between flex-wrap gap-4">
@@ -344,6 +388,30 @@ export function TransactionsTab() {
           </p>
         </div>
         <div className="flex gap-2 flex-wrap">
+          <div className="flex gap-2 border rounded-lg p-1">
+            <button
+              onClick={() => setActiveView("all")}
+              className={cn(
+                "px-3 py-1.5 text-sm font-medium rounded transition-colors",
+                activeView === "all"
+                  ? "bg-primary text-primary-foreground"
+                  : "text-muted-foreground hover:text-foreground"
+              )}
+            >
+              All
+            </button>
+            <button
+              onClick={() => setActiveView("manual")}
+              className={cn(
+                "px-3 py-1.5 text-sm font-medium rounded transition-colors",
+                activeView === "manual"
+                  ? "bg-primary text-primary-foreground"
+                  : "text-muted-foreground hover:text-foreground"
+              )}
+            >
+              Manual
+            </button>
+          </div>
           <Button variant="outline" onClick={() => setShowMerchants(true)}>
             <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
@@ -497,8 +565,8 @@ export function TransactionsTab() {
           </div>
         </CardHeader>
         <CardContent>
-          <div ref={tableRef} className="rounded-lg border overflow-x-auto table-container">
-            <table className="w-full" style={{ minWidth: '1000px', tableLayout: 'fixed' }}>
+          <div ref={tableRef} className="rounded-lg border overflow-x-auto table-container -mx-2 md:mx-0">
+            <table className="w-full md:min-w-[1000px] table-auto md:table-fixed">
               <colgroup>
                 <col style={{ width: '48px' }} />
                 <col style={{ width: '112px' }} />
@@ -509,7 +577,7 @@ export function TransactionsTab() {
               </colgroup>
               <thead>
                 <tr className="border-b bg-muted/50">
-                  <th className="px-3 py-3 text-left">
+                  <th className="px-2 md:px-3 py-3 text-left">
                     <input
                       type="checkbox"
                       checked={selectedIds.size === filteredTransactions.length && filteredTransactions.length > 0}
@@ -517,11 +585,11 @@ export function TransactionsTab() {
                       className="rounded"
                     />
                   </th>
-                  <th className="px-3 py-3 text-left text-sm font-medium">Date</th>
-                  <th className="px-3 py-3 text-left text-sm font-medium">Merchant</th>
-                  <th className="px-3 py-3 text-right text-sm font-medium">Amount</th>
-                  <th className="px-3 py-3 text-center text-sm font-medium">Tag</th>
-                  <th className="px-3 py-3 text-right text-sm font-medium">Actions</th>
+                  <th className="px-2 md:px-3 py-3 text-left text-xs md:text-sm font-medium">Date</th>
+                  <th className="px-2 md:px-3 py-3 text-left text-xs md:text-sm font-medium">Merchant</th>
+                  <th className="px-2 md:px-3 py-3 text-right text-xs md:text-sm font-medium">Amount</th>
+                  <th className="px-2 md:px-3 py-3 text-center text-xs md:text-sm font-medium">Tag</th>
+                  <th className="px-2 md:px-3 py-3 text-right text-xs md:text-sm font-medium">Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -542,7 +610,7 @@ export function TransactionsTab() {
                         } ${hasSplits ? "bg-muted/20" : ""}`}
                         onClick={() => setFocusedIndex(index)}
                       >
-                        <td className="px-3 py-3">
+                        <td className="px-2 md:px-3 py-3">
                           <input
                             type="checkbox"
                             checked={selectedIds.has(tx.id)}
@@ -551,7 +619,7 @@ export function TransactionsTab() {
                             disabled={hasSplits}
                           />
                         </td>
-                        <td className="px-3 py-3 text-sm text-muted-foreground whitespace-nowrap">
+                        <td className="px-2 md:px-3 py-3 text-xs md:text-sm text-muted-foreground whitespace-nowrap">
                           {editingTransaction === tx.id ? (
                             <Input
                               type="date"
@@ -564,7 +632,7 @@ export function TransactionsTab() {
                             tx.date
                           )}
                         </td>
-                        <td className="px-3 py-3 overflow-hidden max-w-[300px]">
+                        <td className="px-2 md:px-3 py-3 overflow-hidden max-w-[200px] md:max-w-[300px]">
                           {editingTransaction === tx.id ? (
                             <div className="space-y-1">
                               <Input
@@ -603,19 +671,19 @@ export function TransactionsTab() {
                               onDoubleClick={() => startEditingMerchant(tx)}
                               title="Double-click to edit"
                             >
-                              <div className="text-sm font-medium group-hover:text-primary transition-colors flex items-center gap-2 min-w-0">
-                                <span className="truncate">{tx.merchant}</span>
+                              <div className="text-xs md:text-sm font-medium group-hover:text-primary transition-colors flex items-center gap-2 min-w-0">
+                                <span className="break-words line-clamp-1">{tx.merchant}</span>
                                 {hasSplits && (
                                   <Badge variant="outline" className="text-xs flex-shrink-0">Split</Badge>
                                 )}
                               </div>
-                              <div className="text-xs text-muted-foreground truncate" title={tx.description}>
+                              <div className="text-xs text-muted-foreground break-words line-clamp-1" title={tx.description}>
                                 {tx.description}
                               </div>
                             </div>
                           )}
                         </td>
-                        <td className={`px-3 py-3 text-sm text-right font-mono whitespace-nowrap ${tx.amount >= 0 ? "text-green-500" : "text-foreground"} ${hasSplits ? "line-through text-muted-foreground" : ""}`}>
+                        <td className={`px-2 md:px-3 py-3 text-xs md:text-sm text-right font-mono whitespace-nowrap ${tx.amount >= 0 ? "text-green-500" : "text-foreground"} ${hasSplits ? "line-through text-muted-foreground" : ""}`}>
                           {editingTransaction === tx.id ? (
                             <Input
                               type="number"
@@ -629,7 +697,7 @@ export function TransactionsTab() {
                             <>{formatAmount(tx.amount)} {tx.currency}</>
                           )}
                         </td>
-                        <td className="px-3 py-3 text-center whitespace-nowrap">
+                        <td className="px-2 md:px-3 py-3 text-center whitespace-nowrap">
                           <div className="flex items-center justify-center">
                             {hasSplits ? (
                               <Badge variant="outline" className="text-xs">See splits</Badge>
@@ -638,7 +706,7 @@ export function TransactionsTab() {
                             )}
                           </div>
                         </td>
-                        <td className="px-3 py-3 text-right whitespace-nowrap">
+                        <td className="px-2 md:px-3 py-3 text-right whitespace-nowrap">
                           <div className="flex items-center justify-end gap-1 flex-shrink-0">
                             {editingTransaction === tx.id ? (
                               <>

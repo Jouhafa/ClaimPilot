@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useRef } from "react";
+import { useState, useCallback, useRef, useLayoutEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -12,6 +12,7 @@ import { assessParseQuality, redactByRemovingHeader } from "@/lib/statementParse
 import { extractPDFTextWithOCR, type OCRProgress, cleanupOCRWorker } from "@/lib/pdfOCR";
 import { ImportProfileManager } from "./ImportProfileManager";
 import { DemoDataLoader } from "./DemoDataLoader";
+import { reconcilePendingTransactions, mergeTransaction } from "@/lib/reconciliation";
 import { v4 as uuidv4 } from "uuid";
 import type { Transaction, ImportProfile, Rule, StatementType } from "@/lib/types";
 import { detectEnbdStatementType } from "@/lib/statementParser";
@@ -65,7 +66,7 @@ function normalizeOCRTextForParsing(raw: string): string {
 }
 
 export function ImportTab({ onImportSuccess }: ImportTabProps) {
-  const { addTransactions, rules, transactions, deleteAllTransactions } = useApp();
+  const { addTransactions, updateTransaction, rules, transactions, deleteAllTransactions } = useApp();
   const [isDragging, setIsDragging] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [isAIProcessing, setIsAIProcessing] = useState(false);
@@ -133,6 +134,84 @@ export function ImportTab({ onImportSuccess }: ImportTabProps) {
       cleanupOCRWorker();
     };
   }, []);
+
+  /* Lock body scroll when modals are open to prevent background scrolling.
+   * This prevents the "twitching" effect by:
+   * 1. Using scrollbar-gutter: stable (in globals.css) to reserve scrollbar space
+   * 2. Locking body scroll with overflow: hidden when modal opens
+   * 3. Compensating with padding-right for browsers that don't support scrollbar-gutter
+   * 
+   * Without this, when the modal opens and body scroll is locked, the scrollbar
+   * disappears causing a horizontal layout shift (content jumps right), which
+   * makes the modal appear to "twitch" or "jump".
+   * 
+   * Using useLayoutEffect ensures this runs synchronously before the browser paints,
+   * preventing any visible layout shift.
+   */
+  useLayoutEffect(() => {
+    const isModalOpen = showStatementTypeModal || showClearAllModal;
+    
+    if (isModalOpen) {
+      // Calculate scrollbar width BEFORE locking scroll
+      // This is critical - we need to measure while scrollbar is still visible
+      const scrollbarWidth = window.innerWidth - document.documentElement.clientWidth;
+      
+      // Store original values for cleanup
+      const originalBodyOverflow = document.body.style.overflow;
+      const originalBodyPaddingRight = document.body.style.paddingRight;
+      const originalHtmlOverflow = document.documentElement.style.overflow;
+      
+      // Find the main scrollable container (AppShell's scroll container)
+      // This is the actual element that scrolls and has the scrollbar, not the body
+      // We use a data attribute for reliable selection
+      const mainScrollContainer = document.querySelector('[data-scroll-container]') as HTMLElement;
+      let originalContainerOverflow = '';
+      let originalContainerPaddingRight = '';
+      
+      if (mainScrollContainer) {
+        originalContainerOverflow = mainScrollContainer.style.overflow;
+        originalContainerPaddingRight = mainScrollContainer.style.paddingRight;
+        // Lock the scrollable container - this is where the scrollbar actually is
+        mainScrollContainer.style.overflow = "hidden";
+        // Apply padding compensation to prevent layout shift when scrollbar disappears
+        if (scrollbarWidth > 0) {
+          mainScrollContainer.style.paddingRight = `${scrollbarWidth}px`;
+        }
+      }
+      
+      // Lock body scroll to prevent background scrolling
+      document.body.style.overflow = "hidden";
+      // Add padding to compensate for scrollbar (more reliable than scrollbar-gutter alone)
+      if (scrollbarWidth > 0) {
+        document.body.style.paddingRight = `${scrollbarWidth}px`;
+      }
+      
+      // Also lock html element to be extra safe
+      document.documentElement.style.overflow = "hidden";
+      
+      // Cleanup: restore original styles when modal closes
+      return () => {
+        document.body.style.overflow = originalBodyOverflow;
+        document.body.style.paddingRight = originalBodyPaddingRight;
+        document.documentElement.style.overflow = originalHtmlOverflow;
+        if (mainScrollContainer) {
+          mainScrollContainer.style.overflow = originalContainerOverflow;
+          mainScrollContainer.style.paddingRight = originalContainerPaddingRight;
+        }
+      };
+    } else {
+      // Cleanup when modal closes - ensure we restore everything
+      document.body.style.overflow = "";
+      document.body.style.paddingRight = "";
+      document.documentElement.style.overflow = "";
+      // Find the main scrollable container - use data attribute for reliable selection
+      const mainScrollContainer = document.querySelector('[data-scroll-container]') as HTMLElement;
+      if (mainScrollContainer) {
+        mainScrollContainer.style.overflow = "";
+        mainScrollContainer.style.paddingRight = "";
+      }
+    }
+  }, [showStatementTypeModal, showClearAllModal]);
 
   const handleDemoLoaded = () => {
     setSuccessCount(32); // Demo data count
@@ -351,6 +430,26 @@ export function ImportTab({ onImportSuccess }: ImportTabProps) {
         await addTransactions(taggedTransactions);
         setSuccessCount(taggedTransactions.length);
         console.log(`Successfully imported ${taggedTransactions.length} transactions`);
+        
+        // Auto-reconcile pending transactions with newly imported ones
+        const pendingTxs = transactions.filter(
+          (tx) => tx.transactionStatus === "pending" || (tx.isManual && !tx.transactionStatus)
+        );
+        if (pendingTxs.length > 0) {
+          const reconciliation = reconcilePendingTransactions(pendingTxs, taggedTransactions);
+          if (reconciliation.matched.length > 0) {
+            console.log(`Auto-reconciling ${reconciliation.matched.length} pending transaction(s)`);
+            for (const { pending, imported } of reconciliation.matched) {
+              const merged = mergeTransaction(pending, imported);
+              await updateTransaction(imported.id, merged);
+              await updateTransaction(pending.id, { transactionStatus: "confirmed", isManual: false });
+            }
+            setInfoMessage(
+              `Imported ${taggedTransactions.length} transactions and reconciled ${reconciliation.matched.length} pending transaction(s)`
+            );
+          }
+        }
+        
         onImportSuccess?.();
         return;
       }
@@ -447,9 +546,28 @@ export function ImportTab({ onImportSuccess }: ImportTabProps) {
         await addTransactions(taggedTransactions);
         setSuccessCount(taggedTransactions.length);
         console.log(`[${PARSER_VERSION}] Successfully imported ${taggedTransactions.length} transactions using ${result.method} method`);
+        
+        // Auto-reconcile pending transactions with newly imported ones
+        const pendingTxs = transactions.filter(
+          (tx) => tx.transactionStatus === "pending" || (tx.isManual && !tx.transactionStatus)
+        );
+        if (pendingTxs.length > 0) {
+          const reconciliation = reconcilePendingTransactions(pendingTxs, taggedTransactions);
+          if (reconciliation.matched.length > 0) {
+            console.log(`Auto-reconciling ${reconciliation.matched.length} pending transaction(s)`);
+            for (const { pending, imported } of reconciliation.matched) {
+              const merged = mergeTransaction(pending, imported);
+              await updateTransaction(imported.id, merged);
+              await updateTransaction(pending.id, { transactionStatus: "confirmed", isManual: false });
+            }
+            setInfoMessage(
+              `Imported ${taggedTransactions.length} transactions and reconciled ${reconciliation.matched.length} pending transaction(s)`
+            );
+          }
+        }
+        
         setIsOCRActive(false);
         setOcrProgress(null);
-        setInfoMessage(null);
         onImportSuccess?.();
       } catch (err) {
         console.error("Parse error:", err);
@@ -816,6 +934,23 @@ export function ImportTab({ onImportSuccess }: ImportTabProps) {
         await addTransactions(taggedTransactions);
         setSuccessCount(taggedTransactions.length);
         console.log(`Successfully imported ${taggedTransactions.length} transactions via AI parsing`);
+        
+        // Auto-reconcile pending transactions with newly imported ones
+        const pendingTxs = transactions.filter(
+          (tx) => tx.transactionStatus === "pending" || (tx.isManual && !tx.transactionStatus)
+        );
+        if (pendingTxs.length > 0) {
+          const reconciliation = reconcilePendingTransactions(pendingTxs, taggedTransactions);
+          if (reconciliation.matched.length > 0) {
+            console.log(`Auto-reconciling ${reconciliation.matched.length} pending transaction(s)`);
+            for (const { pending, imported } of reconciliation.matched) {
+              const merged = mergeTransaction(pending, imported);
+              await updateTransaction(imported.id, merged);
+              await updateTransaction(pending.id, { transactionStatus: "confirmed", isManual: false });
+            }
+          }
+        }
+        
         setShowAIOption(false);
         setLastFileText(null);
         // Navigate to Review tab

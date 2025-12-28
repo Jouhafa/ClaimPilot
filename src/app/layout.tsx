@@ -14,6 +14,7 @@ export const metadata: Metadata = {
   title: "ClaimPilot — Turn Statements into Reimbursement Reports",
   description: "Import your credit card statement, tag transactions, track reimbursements, and export finance-ready reports. Stop paying interest for points.",
   keywords: ["reimbursement tracker", "expense management", "credit card", "consultant expenses", "expense tracking"],
+  manifest: "/manifest.json",
   icons: {
     icon: [
       { url: "/icon.svg", type: "image/svg+xml" },
@@ -35,6 +36,11 @@ export const metadata: Metadata = {
     description: "Import your credit card statement. Tag reimbursables in 2 minutes. Export a finance-ready report.",
   },
   metadataBase: new URL("https://www.personal-fin-ai.com"),
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "default",
+    title: "ClaimPilot",
+  },
 };
 
 export default function RootLayout({

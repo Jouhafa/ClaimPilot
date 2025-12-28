@@ -33,12 +33,17 @@ import { MonthlyRecapJourney } from "./MonthlyRecapJourney";
 import { CustomWrapBuilder } from "./CustomWrapBuilder";
 import { RecapsLibrary } from "./RecapsLibrary";
 import { SettingsTab } from "./SettingsTab";
+import { ROITrackerTab } from "./ROITrackerTab";
+import { RemindersTab } from "./RemindersTab";
+import { ReminderAlerts } from "./ReminderAlerts";
+import { ExpenseCoverageTab } from "./ExpenseCoverageTab";
+import { MobileNavModal } from "./MobileNavModal";
 import { getAutoTagStats } from "@/lib/autoTagger";
 import type { LicenseTier, WrapSnapshot } from "@/lib/types";
 import { generateMonthlyWrap } from "@/lib/wrapComputation";
 import { saveWrapSnapshot } from "@/lib/storage";
 
-type TabId = "hub" | "review" | "plan" | "coach" | "import" | "transactions" | "reimbursements" | "recurring" | "analytics" | "goals" | "buckets" | "action-plan" | "investments" | "card-safety" | "export" | "learn" | "create-wrap" | "recaps" | "settings";
+type TabId = "hub" | "review" | "plan" | "coach" | "import" | "transactions" | "reimbursements" | "recurring" | "analytics" | "goals" | "buckets" | "action-plan" | "investments" | "card-safety" | "export" | "learn" | "create-wrap" | "recaps" | "settings" | "roi-tracker" | "reminders" | "expense-coverage";
 
 interface NavItem {
   id: TabId;
@@ -60,6 +65,7 @@ function AppContent() {
   const [wrapSnapshot, setWrapSnapshot] = useState<WrapSnapshot | null>(null);
   const [wrapMonthKey, setWrapMonthKey] = useState<string | undefined>(undefined);
   const [selectedMonth, setSelectedMonth] = useState(() => new Date());
+  const [showMobileNavModal, setShowMobileNavModal] = useState(false);
   const { transactions, goals, buckets, tier, hasAccess } = useApp();
   const searchParams = useSearchParams();
 
@@ -288,6 +294,16 @@ function AppContent() {
       ),
     },
     {
+      id: "reminders",
+      label: "Reminders",
+      unlockCondition: "hasTransactions",
+      icon: (
+        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+        </svg>
+      ),
+    },
+    {
       id: "export",
       label: "Export & Settings",
       unlockCondition: "hasTransactions",
@@ -433,6 +449,68 @@ function AppContent() {
                   </CardContent>
                 </Card>
               </PaywallGate>
+              {/* ROI Tracker Card */}
+              <Card className="card-lift">
+                <CardContent className="p-6">
+                  <div className="flex items-start justify-between mb-4">
+                    <div>
+                      <h2 className="text-[18px] font-semibold mb-1" style={{ fontWeight: 600 }}>ROI Tracker</h2>
+                      <p className="text-[13px] text-muted-foreground">Track value recovered</p>
+                    </div>
+                    <button
+                      onClick={() => handleNavigate("roi-tracker")}
+                      className="text-[13px] text-muted-foreground hover:text-foreground flex items-center gap-1 transition-colors"
+                    >
+                      View details
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                      </svg>
+                    </button>
+                  </div>
+                  <div className="text-center py-4">
+                    <p className="text-sm text-muted-foreground">View your ROI dashboard</p>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="mt-3"
+                      onClick={() => handleNavigate("roi-tracker")}
+                    >
+                      Open ROI Tracker
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+              {/* Expense Coverage Card */}
+              <Card className="card-lift">
+                <CardContent className="p-6">
+                  <div className="flex items-start justify-between mb-4">
+                    <div>
+                      <h2 className="text-[18px] font-semibold mb-1" style={{ fontWeight: 600 }}>Expense Coverage</h2>
+                      <p className="text-[13px] text-muted-foreground">Find missing claims</p>
+                    </div>
+                    <button
+                      onClick={() => handleNavigate("expense-coverage")}
+                      className="text-[13px] text-muted-foreground hover:text-foreground flex items-center gap-1 transition-colors"
+                    >
+                      View details
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                      </svg>
+                    </button>
+                  </div>
+                  <div className="text-center py-4">
+                    <p className="text-sm text-muted-foreground">Detect work expenses you forgot to claim</p>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="mt-3"
+                      onClick={() => handleNavigate("expense-coverage")}
+                    >
+                      Open Expense Coverage
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
             </div>
           </div>
         );
@@ -541,6 +619,12 @@ function AppContent() {
         return <RecapsLibrary onPlayWrap={handlePlayWrap} onNavigate={handleNavigate} />;
       case "settings":
         return <SettingsTab onNavigate={handleNavigate} />;
+      case "roi-tracker":
+        return <ROITrackerTab />;
+      case "reminders":
+        return <RemindersTab />;
+      case "expense-coverage":
+        return <ExpenseCoverageTab />;
       case "learn":
       case "coach":
         return <CoachTab onNavigate={handleNavigate} />;
@@ -551,18 +635,20 @@ function AppContent() {
 
   return (
     <div className="min-h-screen flex flex-col">
-      {/* Top Navigation Bar */}
-      <TopNav 
-        activeTab={activeTab} 
-        onNavigate={handleNavigate}
-        selectedMonth={selectedMonth}
-        onMonthChange={setSelectedMonth}
-        onPlayWrap={(monthKey) => {
-          setWrapMonthKey(monthKey);
-          setWrapSnapshot(null);
-          setShowMonthlyRecap(true);
-        }}
-      />
+      {/* Top Navigation Bar - Hidden on mobile */}
+      <div className="hidden md:block">
+        <TopNav 
+          activeTab={activeTab} 
+          onNavigate={handleNavigate}
+          selectedMonth={selectedMonth}
+          onMonthChange={setSelectedMonth}
+          onPlayWrap={(monthKey) => {
+            setWrapMonthKey(monthKey);
+            setWrapSnapshot(null);
+            setShowMonthlyRecap(true);
+          }}
+        />
+      </div>
 
       {/* Main content */}
       <main className="flex-1 overflow-hidden bg-background">
@@ -572,59 +658,100 @@ function AppContent() {
             {renderContent()}
           </div>
         ) : (
-          <div className="h-full overflow-y-auto smooth-scroll">
-            <div className="min-h-screen p-4 md:p-6 lg:p-8 max-w-[1120px] mx-auto pb-20 md:pb-8">
+          <div className="h-full overflow-y-auto smooth-scroll" data-scroll-container>
+            <div className="min-h-screen px-2 py-3 md:p-6 lg:p-8 max-w-[1120px] mx-auto pb-20 md:pb-8">
               {renderContent()}
             </div>
           </div>
         )}
       </main>
       
-      {/* Mobile Bottom Navigation */}
-      <nav className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-background/95 backdrop-blur-sm border-t border-border">
-        <div className="grid grid-cols-4 h-16">
-          {primaryNavItems.map((item) => {
-            const isUnlocked = isNavItemUnlocked(item.unlockCondition);
-            if (!isUnlocked) return null;
+      {/* Mobile Bottom Navigation - Enhanced with rounded pill design */}
+      <nav className="md:hidden fixed bottom-0 left-0 right-0 z-40 p-4 pb-6">
+        <div className="relative">
+          {/* Rounded pill container */}
+          <div className="bg-background/95 backdrop-blur-md border-2 border-border rounded-full shadow-2xl px-2 py-2">
+            <div className="grid grid-cols-4 gap-1">
+              {primaryNavItems.map((item) => {
+                const isUnlocked = isNavItemUnlocked(item.unlockCondition);
+                if (!isUnlocked) return null;
+                
+                const isActive = activeTab === item.id;
+                
+                return (
+                  <button
+                    key={item.id}
+                    onClick={() => handleNavigate(item.id)}
+                    className={cn(
+                      "relative flex flex-col items-center justify-center gap-1 p-2 rounded-full transition-all duration-200",
+                      isActive 
+                        ? "bg-primary text-primary-foreground scale-105" 
+                        : "text-muted-foreground hover:bg-muted/50"
+                    )}
+                  >
+                    <span className={cn(
+                      "transition-transform duration-200",
+                      isActive ? "scale-110" : ""
+                    )}>
+                      {item.icon}
+                    </span>
+                    <span className="text-[9px] font-medium leading-tight">{item.label}</span>
+                    {item.badge && item.badge > 0 && (
+                      <span className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-amber-500 text-white text-[9px] font-bold flex items-center justify-center border-2 border-background shadow-md">
+                        {item.badge}
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+          
+          {/* Floating buttons - Import and More */}
+          <div className="absolute -top-12 left-0 right-0 flex items-center justify-center gap-3">
+            {/* Import Button */}
+            <button
+              onClick={() => handleNavigate("import" as TabId)}
+              className={cn(
+                "w-12 h-12 rounded-full bg-primary text-primary-foreground shadow-lg flex items-center justify-center transition-all duration-200",
+                "hover:scale-110 active:scale-95",
+                activeTab === "import" && "ring-4 ring-primary/30"
+              )}
+              aria-label="Import"
+            >
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+              </svg>
+            </button>
             
-            const isActive = activeTab === item.id;
-            
-            return (
-              <button
-                key={item.id}
-                onClick={() => handleNavigate(item.id)}
-                className={cn(
-                  "relative flex flex-col items-center justify-center gap-1 transition-colors",
-                  isActive ? "text-primary" : "text-muted-foreground"
-                )}
-              >
-                <span className={cn(
-                  "transition-transform",
-                  isActive ? "scale-110" : ""
-                )}>
-                  {item.icon}
-                </span>
-                <span className="text-[10px] font-medium">{item.label}</span>
-                {item.badge && item.badge > 0 && (
-                  <span className="absolute top-1 right-1/2 translate-x-1/2 w-4 h-4 rounded-full bg-amber-500 text-white text-[8px] flex items-center justify-center">
-                    {item.badge}
-                  </span>
-                )}
-              </button>
-            );
-          })}
+            {/* More/All Tabs Button */}
+            <button
+              onClick={() => setShowMobileNavModal(true)}
+              className={cn(
+                "w-12 h-12 rounded-full bg-muted border-2 border-border text-foreground shadow-lg flex items-center justify-center transition-all duration-200",
+                "hover:scale-110 active:scale-95 hover:bg-muted/80",
+                showMobileNavModal && "ring-4 ring-primary/30 bg-primary text-primary-foreground"
+              )}
+              aria-label="All tabs"
+            >
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
+              </svg>
+            </button>
+          </div>
         </div>
-        {/* Floating Import Button */}
-        <button
-          onClick={() => handleNavigate("import" as TabId)}
-          className="absolute -top-6 left-1/2 -translate-x-1/2 w-14 h-14 rounded-full bg-primary text-primary-foreground shadow-lg flex items-center justify-center hover:bg-primary/90 transition-colors"
-          aria-label="Import"
-        >
-          <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-          </svg>
-        </button>
       </nav>
+
+      {/* Mobile Navigation Modal */}
+      <MobileNavModal
+        isOpen={showMobileNavModal}
+        onClose={() => setShowMobileNavModal(false)}
+        onNavigate={handleNavigate}
+        activeTab={activeTab}
+        items={[...primaryNavItems, ...moreNavItems]}
+        isNavItemUnlocked={isNavItemUnlocked}
+        hasAccess={hasAccess}
+      />
 
       {/* Dev tier tester - only shows with ?dev=1 */}
       {isDevMode && <DevTierTester />}
@@ -644,6 +771,9 @@ function AppContent() {
           monthKey={wrapMonthKey}
         />
       )}
+
+      {/* Reminder Alerts - checks and shows browser notifications */}
+      <ReminderAlerts />
     </div>
   );
 }

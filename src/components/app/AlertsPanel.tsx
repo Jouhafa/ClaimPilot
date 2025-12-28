@@ -1,12 +1,15 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useApp } from "@/lib/context";
 import { findDuplicates } from "@/lib/types";
 import { cn } from "@/lib/utils";
+import { loadReminders } from "@/lib/storage";
+import { shouldTriggerReminder, getReminderMessage } from "@/lib/reminders";
+import type { Reminder } from "@/lib/types";
 
 interface AlertsPanelProps {
   onNavigate: (tab: string) => void;
@@ -39,6 +42,11 @@ export function AlertsPanel({ onNavigate }: AlertsPanelProps) {
   const { transactions, goals, cardSafety, updateTransaction } = useApp();
   const [alertStatuses, setAlertStatuses] = useState<Record<string, AlertStatus>>({});
   const [showResolved, setShowResolved] = useState(false);
+  const [reminders, setReminders] = useState<Reminder[]>([]);
+
+  useEffect(() => {
+    loadReminders().then(setReminders);
+  }, []);
 
   // Update alert status
   const updateAlertStatus = (alertId: string, status: AlertStatus) => {
@@ -136,31 +144,35 @@ Thank you!`);
       }
     }
 
-    // 2. Stale reimbursements (MEDIUM severity)
-    const staleReimbursements = transactions.filter(t => {
-      if (t.tag !== "reimbursable" || t.status !== "submitted") return false;
-      const submittedDate = new Date(t.createdAt);
-      const daysSinceSubmitted = Math.floor((today.getTime() - submittedDate.getTime()) / (1000 * 60 * 60 * 24));
-      return daysSinceSubmitted > 14;
-    });
-
-    if (staleReimbursements.length > 0) {
-      const total = staleReimbursements.reduce((sum, t) => sum + Math.abs(t.amount), 0);
-      const oldestDays = Math.max(...staleReimbursements.map(t => 
-        Math.floor((today.getTime() - new Date(t.createdAt).getTime()) / (1000 * 60 * 60 * 24))
-      ));
-      alertsList.push({
-        id: "stale-reimbursements",
-        severity: "medium",
-        type: "warning",
-        title: "Reimbursements awaiting payment",
-        description: `${staleReimbursements.length} claims (${total.toLocaleString()} AED) submitted ${oldestDays} days ago`,
-        actions: [
-          { label: "Send reminder", variant: "outline", onClick: () => generateReminderEmail(total, staleReimbursements.length) },
-          { label: "Mark as chased", variant: "ghost", onClick: () => markAsChased(staleReimbursements.map(t => t.id), "stale-reimbursements"), resolvesAlert: true },
-        ],
-        dismissible: true,
+    // 2. Stale reimbursements (MEDIUM severity) - only show if reminder is enabled
+    const staleReminder = reminders.find(r => r.type === "stale_reimbursement" && r.enabled);
+    if (staleReminder) {
+      const staleReimbursements = transactions.filter(t => {
+        if (t.tag !== "reimbursable" || t.status !== "submitted") return false;
+        const submittedDate = new Date(t.createdAt || t.date);
+        const daysSinceSubmitted = Math.floor((today.getTime() - submittedDate.getTime()) / (1000 * 60 * 60 * 24));
+        return daysSinceSubmitted >= (staleReminder.triggerDays || 14);
       });
+
+      if (staleReimbursements.length > 0 && shouldTriggerReminder(staleReminder, cardSafety, transactions)) {
+        const total = staleReimbursements.reduce((sum, t) => sum + Math.abs(t.amount), 0);
+        const oldestDays = Math.max(...staleReimbursements.map(t => 
+          Math.floor((today.getTime() - new Date(t.createdAt || t.date).getTime()) / (1000 * 60 * 60 * 24))
+        ));
+        alertsList.push({
+          id: "stale-reimbursements",
+          severity: "medium",
+          type: "warning",
+          title: "Reimbursements awaiting payment",
+          description: getReminderMessage(staleReminder, cardSafety, transactions),
+          actions: [
+            { label: "Send reminder", variant: "outline", onClick: () => generateReminderEmail(total, staleReimbursements.length) },
+            { label: "Mark as chased", variant: "ghost", onClick: () => markAsChased(staleReimbursements.map(t => t.id), "stale-reimbursements"), resolvesAlert: true },
+            { label: "Manage reminders", variant: "ghost", onClick: () => onNavigate("reminders") },
+          ],
+          dismissible: true,
+        });
+      }
     }
 
     // 3. Multiple subscriptions (LOW severity)

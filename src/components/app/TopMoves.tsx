@@ -202,7 +202,7 @@ export function TopMoves({ onNavigate }: TopMovesProps) {
 
             {/* Title */}
             <span className={cn(
-              "font-medium flex-1 min-w-0 truncate",
+              "font-medium flex-1 min-w-0 break-words",
               index === 0 && "text-foreground"
             )}>
               {move.title}
@@ -210,14 +210,14 @@ export function TopMoves({ onNavigate }: TopMovesProps) {
 
             {/* Impact */}
             <span className={cn(
-              "text-sm font-semibold shrink-0",
+              "text-xs md:text-sm font-semibold shrink-0 whitespace-nowrap ml-2",
               index === 0 ? "text-primary" : "text-green-600 dark:text-green-400"
             )}>
               {move.impact}
             </span>
 
             {/* Time estimate */}
-            <span className="text-xs text-muted-foreground shrink-0 w-16 text-right">
+            <span className="text-xs text-muted-foreground shrink-0 w-12 md:w-16 text-right whitespace-nowrap">
               {move.timeEstimate}
             </span>
 

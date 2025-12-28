@@ -1,7 +1,8 @@
 import { get, set, del } from "idb-keyval";
 import type { 
   Transaction, Rule, CardSafetyData, ClaimBatch, ImportProfile, MerchantAlias,
-  Goal, Bucket, CategoryRule, RecurringTransaction, IncomeConfig, WrapSnapshot
+  Goal, Bucket, CategoryRule, RecurringTransaction, IncomeConfig, WrapSnapshot,
+  ROITrackerData, Reminder, ExpenseCoverageConfig, ExpenseCoverageItem, Account, Budget
 } from "./types";
 import type { UserProfile } from "./appState";
 
@@ -19,6 +20,11 @@ const RECURRING_KEY = "claimpilot_recurring";
 const INCOME_KEY = "claimpilot_income";
 const PROFILE_KEY = "claimpilot_profile";
 const WRAPS_KEY = "claimpilot_wraps";
+const ROI_TRACKER_KEY = "claimpilot_roi_tracker";
+const REMINDERS_KEY = "claimpilot_reminders";
+const ACCOUNTS_KEY = "claimpilot_accounts";
+const EXPENSE_COVERAGE_KEY = "claimpilot_expense_coverage";
+const BUDGETS_KEY = "claimpilot_budgets";
 
 // Transactions
 export async function saveTransactions(transactions: Transaction[]): Promise<void> {
@@ -477,4 +483,145 @@ export async function updateWrapWatchedAt(id: string, watchedAt: string): Promis
   const wraps = await loadWrapSnapshots();
   const updated = wraps.map(w => w.id === id ? { ...w, watchedAt } : w);
   await set(WRAPS_KEY, updated);
+}
+
+// ROI Tracker
+export async function saveROITrackerData(data: ROITrackerData): Promise<void> {
+  await set(ROI_TRACKER_KEY, data);
+}
+
+export async function loadROITrackerData(): Promise<ROITrackerData | null> {
+  const data = await get<ROITrackerData>(ROI_TRACKER_KEY);
+  return data || null;
+}
+
+export async function updateROITrackerData(updates: Partial<ROITrackerData>): Promise<ROITrackerData> {
+  const existing = await loadROITrackerData();
+  const updated: ROITrackerData = {
+    monthlyMetrics: {},
+    cancelledSubscriptions: [],
+    lastUpdated: new Date().toISOString(),
+    ...existing,
+    ...updates,
+    monthlyMetrics: { ...existing?.monthlyMetrics, ...updates.monthlyMetrics },
+    cancelledSubscriptions: updates.cancelledSubscriptions ?? existing?.cancelledSubscriptions ?? [],
+  };
+  await saveROITrackerData(updated);
+  return updated;
+}
+
+// Reminders
+export async function saveReminders(reminders: Reminder[]): Promise<void> {
+  await set(REMINDERS_KEY, reminders);
+}
+
+export async function loadReminders(): Promise<Reminder[]> {
+  const data = await get<Reminder[]>(REMINDERS_KEY);
+  return data || [];
+}
+
+export async function addReminder(reminder: Reminder): Promise<Reminder[]> {
+  const reminders = await loadReminders();
+  reminders.push(reminder);
+  await saveReminders(reminders);
+  return reminders;
+}
+
+export async function updateReminder(id: string, updates: Partial<Reminder>): Promise<Reminder[]> {
+  const reminders = await loadReminders();
+  const updated = reminders.map(r => r.id === id ? { ...r, ...updates } : r);
+  await saveReminders(updated);
+  return updated;
+}
+
+export async function deleteReminder(id: string): Promise<Reminder[]> {
+  const reminders = await loadReminders();
+  const filtered = reminders.filter(r => r.id !== id);
+  await saveReminders(filtered);
+  return filtered;
+}
+
+// Expense Coverage
+export async function saveExpenseCoverageConfig(config: ExpenseCoverageConfig): Promise<void> {
+  await set(EXPENSE_COVERAGE_KEY, config);
+}
+
+export async function loadExpenseCoverageConfig(): Promise<ExpenseCoverageConfig | null> {
+  const data = await get<ExpenseCoverageConfig>(EXPENSE_COVERAGE_KEY);
+  return data || null;
+}
+
+export async function saveExpenseCoverageItems(items: ExpenseCoverageItem[]): Promise<void> {
+  await set(`${EXPENSE_COVERAGE_KEY}_items`, items);
+}
+
+export async function loadExpenseCoverageItems(): Promise<ExpenseCoverageItem[]> {
+  const data = await get<ExpenseCoverageItem[]>(`${EXPENSE_COVERAGE_KEY}_items`);
+  return data || [];
+}
+
+// Accounts
+export async function saveAccounts(accounts: Account[]): Promise<void> {
+  await set(ACCOUNTS_KEY, accounts);
+}
+
+export async function loadAccounts(): Promise<Account[]> {
+  const data = await get<Account[]>(ACCOUNTS_KEY);
+  return data || [];
+}
+
+export async function addAccount(account: Account): Promise<Account[]> {
+  const accounts = await loadAccounts();
+  accounts.push(account);
+  await saveAccounts(accounts);
+  return accounts;
+}
+
+export async function updateAccount(id: string, updates: Partial<Account>): Promise<Account[]> {
+  const accounts = await loadAccounts();
+  const updated = accounts.map((a) =>
+    a.id === id ? { ...a, ...updates, updatedAt: new Date().toISOString() } : a
+  );
+  await saveAccounts(updated);
+  return updated;
+}
+
+export async function deleteAccount(id: string): Promise<Account[]> {
+  const accounts = await loadAccounts();
+  const filtered = accounts.filter((a) => a.id !== id);
+  await saveAccounts(filtered);
+  return filtered;
+}
+
+// Budgets
+export async function saveBudgets(budgets: Budget[]): Promise<void> {
+  await set(BUDGETS_KEY, budgets);
+}
+
+export async function loadBudgets(): Promise<Budget[]> {
+  const data = await get<Budget[]>(BUDGETS_KEY);
+  return data || [];
+}
+
+export async function addBudget(budget: Budget): Promise<Budget[]> {
+  const budgets = await loadBudgets();
+  budgets.push(budget);
+  await saveBudgets(budgets);
+  return budgets;
+}
+
+export async function updateBudget(id: string, updates: Partial<Budget>): Promise<Budget[]> {
+  const budgets = await loadBudgets();
+  const updated = budgets.map((b) =>
+    b.id === id ? { ...b, ...updates, updatedAt: new Date().toISOString() } : b
+  );
+  await saveBudgets(updated);
+  return updated;
+}
+
+export async function deleteBudget(id: string): Promise<Budget[]> {
+  const budgets = await loadBudgets();
+  const filtered = budgets.filter((b) => b.id !== id);
+  await saveBudgets(filtered);
+  return filtered;
 }

@@ -5,6 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { cn } from "@/lib/utils";
 import { useApp } from "@/lib/context";
 import { CATEGORY_CONFIG, type TransactionCategory } from "@/lib/types";
 import { 
@@ -18,16 +19,22 @@ import { AnomaliesPanel } from "./AnomaliesPanel";
 import { SpendingSummaryExport } from "./SpendingSummaryExport";
 import { SmartSuggestions } from "./SmartSuggestions";
 import { MonthlyNarrative } from "./MonthlyNarrative";
+import { MonthComparisonView } from "./MonthComparisonView";
 
 interface AnalyticsDashboardProps {
   onNavigate?: (tab: string) => void;
+  selectedMonth?: Date;
+  showComparison?: boolean;
 }
 
-export function AnalyticsDashboard({ onNavigate }: AnalyticsDashboardProps = {}) {
+export function AnalyticsDashboard({ onNavigate, selectedMonth, showComparison = false }: AnalyticsDashboardProps = {}) {
   const { transactions, incomeConfig, setIncomeConfig } = useApp();
   const [showIncomeInput, setShowIncomeInput] = useState(false);
   const [incomeValue, setIncomeValue] = useState(incomeConfig?.monthlyIncome?.toString() || "");
   const [showSummaryExport, setShowSummaryExport] = useState(false);
+  const [activeView, setActiveView] = useState<"overview" | "comparison">(showComparison ? "comparison" : "overview");
+  
+  const monthToUse = selectedMonth || new Date();
 
   // Filter to expenses only (excluding split parents)
   const expenses = useMemo(() => {
@@ -37,7 +44,7 @@ export function AnalyticsDashboard({ onNavigate }: AnalyticsDashboardProps = {})
   // Get all analytics data
   const categoryBreakdown = useMemo(() => getCategoryBreakdown(transactions), [transactions]);
   const fixedVsVariable = useMemo(() => getFixedVsVariable(transactions), [transactions]);
-  const monthComparison = useMemo(() => getMonthOverMonthComparison(transactions), [transactions]);
+  const monthComparison = useMemo(() => getMonthOverMonthComparison(transactions, monthToUse), [transactions, monthToUse]);
   const cashflow = useMemo(() => getCashflowSummary(transactions), [transactions]);
   const topMerchants = useMemo(() => getTopMerchants(transactions, 10), [transactions]);
 
@@ -92,8 +99,41 @@ export function AnalyticsDashboard({ onNavigate }: AnalyticsDashboardProps = {})
     );
   }
 
+  // Show comparison view if requested
+  if (activeView === "comparison" || showComparison) {
+    return <MonthComparisonView selectedMonth={monthToUse} />;
+  }
+
   return (
     <div className="space-y-6">
+      {/* View Toggle */}
+      <div className="flex justify-between items-center">
+        <div className="flex gap-2">
+          <button
+            onClick={() => setActiveView("overview")}
+            className={cn(
+              "px-4 py-2 rounded-lg text-sm font-medium transition-colors",
+              activeView === "overview"
+                ? "bg-primary text-primary-foreground"
+                : "bg-muted text-muted-foreground hover:bg-muted/80"
+            )}
+          >
+            Overview
+          </button>
+          <button
+            onClick={() => setActiveView("comparison")}
+            className={cn(
+              "px-4 py-2 rounded-lg text-sm font-medium transition-colors",
+              activeView === "comparison"
+                ? "bg-primary text-primary-foreground"
+                : "bg-muted text-muted-foreground hover:bg-muted/80"
+            )}
+          >
+            Month Comparison
+          </button>
+        </div>
+      </div>
+
       {/* Export Button + Coach Chip */}
       <div className="flex justify-between items-center">
         {onNavigate && (

@@ -32,6 +32,9 @@ export type StatementType = "enbd_debit" | "enbd_credit" | "unknown";
 // Transaction kind classification
 export type TransactionKind = "spend" | "income" | "transfer" | "reimbursement" | "unknown";
 
+// Transaction confirmation status
+export type TransactionStatus = "pending" | "confirmed";
+
 export interface Transaction {
   id: string;
   date: string; // ISO format (transaction date)
@@ -41,8 +44,11 @@ export interface Transaction {
   amount: number; // negative for debits/outflow, positive for credits/inflow
   currency: string;
   balance?: number; // Account balance after transaction (for debit statements)
+  accountId?: string; // Reference to Account
   tag: TransactionTag;
   status?: ReimbursementStatus; // only for reimbursable
+  transactionStatus?: TransactionStatus; // pending or confirmed (for manual transactions)
+  isManual?: boolean; // True if manually added (not from statement import)
   note?: string;
   batchId?: string; // Reference to ClaimBatch
   category?: TransactionCategory;
@@ -295,6 +301,50 @@ export interface Bucket {
   createdAt: string;
 }
 
+// Account Management
+export type AccountType = "checking" | "savings" | "credit_card" | "investment" | "loan" | "other";
+export type AccountGroup = "personal" | "business" | "joint" | "other";
+
+export interface Account {
+  id: string;
+  name: string; // "ENBD Checking", "HSBC Credit Card"
+  type: AccountType;
+  group: AccountGroup;
+  bankName?: string;
+  accountNumber?: string; // Last 4 digits or masked
+  currency: string;
+  initialBalance: number; // Balance when account was added
+  currentBalance?: number; // Calculated from transactions
+  isActive: boolean;
+  color?: string; // For UI display
+  notes?: string;
+  createdAt: string;
+  updatedAt?: string;
+}
+
+// Budget Management
+export interface Budget {
+  id: string;
+  category: TransactionCategory;
+  monthlyAmount: number; // Budget amount for this category
+  currency: string;
+  rolloverEnabled: boolean; // Allow unused budget to roll over
+  alertThreshold?: number; // Percentage (e.g., 80) to alert at
+  isActive: boolean;
+  createdAt: string;
+  updatedAt?: string;
+}
+
+export interface BudgetTemplate {
+  id: string;
+  name: string; // "Conservative", "Balanced", "Aggressive"
+  description: string;
+  budgets: Array<{
+    category: TransactionCategory;
+    percentage: number; // Percentage of monthly income
+  }>;
+}
+
 // User income configuration
 export interface IncomeConfig {
   monthlyIncome: number;
@@ -482,4 +532,55 @@ export interface WrapSnapshot {
   title: string; // e.g., "Dec 2025 Wrap" or "Wrap · Oct 15–Dec 23"
   wrapData: WrapData;
   version: string; // e.g., "1.0"
+}
+
+// ROI Tracker
+export interface ROIMonthlyMetrics {
+  reimbursementsRecovered: number;
+  interestAvoided: number;
+  subscriptionsCancelled: number;
+  estimatedSavings: number;
+  totalBenefit: number;
+}
+
+export interface CancelledSubscription {
+  id: string;
+  merchant: string;
+  amount: number;
+  cancelledDate: string;
+  originalRecurringId?: string;
+}
+
+export interface ROITrackerData {
+  monthlyMetrics: Record<string, ROIMonthlyMetrics>; // monthKey -> metrics
+  cancelledSubscriptions: CancelledSubscription[];
+  lastUpdated: string;
+}
+
+// Reminders
+export type ReminderType = "monthly_import" | "card_due" | "stale_reimbursement";
+export type ReminderDeliveryMethod = "in_app" | "calendar" | "email";
+
+export interface Reminder {
+  id: string;
+  type: ReminderType;
+  enabled: boolean;
+  triggerDays?: number; // days before/after for card due and stale
+  deliveryMethods: ReminderDeliveryMethod[];
+  lastTriggered?: string;
+  nextTrigger?: string;
+  createdAt: string;
+}
+
+// Expense Coverage
+export interface ExpenseCoverageConfig {
+  claimsSubmittedTotal: number;
+  claimsSubmittedDate?: string;
+  lastAnalyzed: string;
+}
+
+export interface ExpenseCoverageItem {
+  transactionId: string;
+  reason: string; // "Travel-related", "Business meal", etc.
+  confidence: "high" | "medium" | "low";
 }

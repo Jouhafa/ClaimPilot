@@ -1,4 +1,8 @@
 export { AppShell } from "./AppShell";
+export { ROITrackerTab } from "./ROITrackerTab";
+export { ROICard } from "./ROICard";
+export { RemindersTab } from "./RemindersTab";
+export { ExpenseCoverageTab } from "./ExpenseCoverageTab";
 export { ImportTab } from "./ImportTab";
 export { TransactionsTab } from "./TransactionsTab";
 export { ReviewTab } from "./ReviewTab";
