@@ -354,9 +354,7 @@ export function TransactionsTab() {
             onClick={() => setActiveView("all")}
             className={cn(
               "px-4 py-2 text-sm font-medium border-b-2 transition-colors",
-              activeView === "all"
-                ? "border-primary text-primary"
-                : "border-transparent text-muted-foreground hover:text-foreground"
+              "border-transparent text-muted-foreground hover:text-foreground"
             )}
           >
             All Transactions
@@ -365,9 +363,7 @@ export function TransactionsTab() {
             onClick={() => setActiveView("manual")}
             className={cn(
               "px-4 py-2 text-sm font-medium border-b-2 transition-colors",
-              activeView === "manual"
-                ? "border-primary text-primary"
-                : "border-transparent text-muted-foreground hover:text-foreground"
+              "border-primary text-primary"
             )}
           >
             Manual Transactions
@@ -393,9 +389,7 @@ export function TransactionsTab() {
               onClick={() => setActiveView("all")}
               className={cn(
                 "px-3 py-1.5 text-sm font-medium rounded transition-colors",
-                activeView === "all"
-                  ? "bg-primary text-primary-foreground"
-                  : "text-muted-foreground hover:text-foreground"
+                "bg-primary text-primary-foreground"
               )}
             >
               All
@@ -404,9 +398,7 @@ export function TransactionsTab() {
               onClick={() => setActiveView("manual")}
               className={cn(
                 "px-3 py-1.5 text-sm font-medium rounded transition-colors",
-                activeView === "manual"
-                  ? "bg-primary text-primary-foreground"
-                  : "text-muted-foreground hover:text-foreground"
+                "text-muted-foreground hover:text-foreground"
               )}
             >
               Manual

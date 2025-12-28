@@ -497,14 +497,14 @@ export async function loadROITrackerData(): Promise<ROITrackerData | null> {
 
 export async function updateROITrackerData(updates: Partial<ROITrackerData>): Promise<ROITrackerData> {
   const existing = await loadROITrackerData();
+  const { monthlyMetrics: updatesMonthlyMetrics, cancelledSubscriptions: updatesCancelledSubscriptions, lastUpdated: updatesLastUpdated, ...restUpdates } = updates;
+  const { monthlyMetrics: existingMonthlyMetrics, cancelledSubscriptions: existingCancelledSubscriptions, lastUpdated: existingLastUpdated, ...restExisting } = existing || {};
   const updated: ROITrackerData = {
-    monthlyMetrics: {},
-    cancelledSubscriptions: [],
-    lastUpdated: new Date().toISOString(),
-    ...existing,
-    ...updates,
-    monthlyMetrics: { ...existing?.monthlyMetrics, ...updates.monthlyMetrics },
-    cancelledSubscriptions: updates.cancelledSubscriptions ?? existing?.cancelledSubscriptions ?? [],
+    ...restExisting,
+    ...restUpdates,
+    monthlyMetrics: { ...existingMonthlyMetrics, ...updatesMonthlyMetrics },
+    cancelledSubscriptions: updatesCancelledSubscriptions ?? existingCancelledSubscriptions ?? [],
+    lastUpdated: updatesLastUpdated ?? existingLastUpdated ?? new Date().toISOString(),
   };
   await saveROITrackerData(updated);
   return updated;

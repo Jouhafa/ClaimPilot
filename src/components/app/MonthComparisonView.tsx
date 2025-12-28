@@ -72,21 +72,21 @@ export function MonthComparisonView({ selectedMonth }: MonthComparisonViewProps)
 
     // Recurring comparison
     const selectedRecurring = recurring.filter((r) => {
-      const rDate = new Date(r.lastSeen);
+      const rDate = new Date(r.lastOccurrence);
       return rDate >= selectedMonthStart && rDate <= selectedMonthEnd;
     });
     const previousRecurring = recurring.filter((r) => {
-      const rDate = new Date(r.lastSeen);
+      const rDate = new Date(r.lastOccurrence);
       return rDate >= previousMonthStart && rDate <= previousMonthEnd;
     });
 
     // Goals progress comparison
     const goalsProgress = goals.map((goal) => {
       const selectedProgress = selectedMonthTransactions
-        .filter((tx) => tx.category === goal.category || goal.category === "all")
+        .filter((tx) => tx.category === goal.category)
         .reduce((sum, tx) => sum + Math.abs(tx.amount), 0);
       const previousProgress = previousMonthTransactions
-        .filter((tx) => tx.category === goal.category || goal.category === "all")
+        .filter((tx) => tx.category === goal.category)
         .reduce((sum, tx) => sum + Math.abs(tx.amount), 0);
       
       return {
