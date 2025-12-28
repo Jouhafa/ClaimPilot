@@ -101,7 +101,34 @@ export function AnalyticsDashboard({ onNavigate, selectedMonth, showComparison =
 
   // Show comparison view if requested
   if (activeView === "comparison" || showComparison) {
-    return <MonthComparisonView selectedMonth={monthToUse} />;
+    return (
+      <div className="space-y-6">
+        {/* View Toggle */}
+        <div className="flex justify-between items-center">
+          <div className="flex gap-2">
+            <button
+              onClick={() => setActiveView("overview")}
+              className={cn(
+                "px-4 py-2 rounded-lg text-sm font-medium transition-colors",
+                "bg-muted text-muted-foreground hover:bg-muted/80"
+              )}
+            >
+              Overview
+            </button>
+            <button
+              onClick={() => setActiveView("comparison")}
+              className={cn(
+                "px-4 py-2 rounded-lg text-sm font-medium transition-colors",
+                "bg-primary text-primary-foreground"
+              )}
+            >
+              Month Comparison
+            </button>
+          </div>
+        </div>
+        <MonthComparisonView selectedMonth={monthToUse} />
+      </div>
+    );
   }
 
   return (
@@ -113,9 +140,7 @@ export function AnalyticsDashboard({ onNavigate, selectedMonth, showComparison =
             onClick={() => setActiveView("overview")}
             className={cn(
               "px-4 py-2 rounded-lg text-sm font-medium transition-colors",
-              activeView === "overview"
-                ? "bg-primary text-primary-foreground"
-                : "bg-muted text-muted-foreground hover:bg-muted/80"
+              "bg-primary text-primary-foreground"
             )}
           >
             Overview
@@ -124,9 +149,7 @@ export function AnalyticsDashboard({ onNavigate, selectedMonth, showComparison =
             onClick={() => setActiveView("comparison")}
             className={cn(
               "px-4 py-2 rounded-lg text-sm font-medium transition-colors",
-              activeView === "comparison"
-                ? "bg-primary text-primary-foreground"
-                : "bg-muted text-muted-foreground hover:bg-muted/80"
+              "bg-muted text-muted-foreground hover:bg-muted/80"
             )}
           >
             Month Comparison
