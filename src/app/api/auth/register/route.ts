@@ -33,16 +33,19 @@ export async function POST(request: Request) {
       { status: 201 }
     );
   } catch (error: any) {
-    if (error.message === "User already exists") {
+    if (error.message === "User already exists" || error.message?.includes("already exists")) {
       return NextResponse.json(
-        { error: "User with this email already exists" },
+        { 
+          error: "This email is already linked to an account. Please try signing in instead.",
+          code: "EMAIL_EXISTS"
+        },
         { status: 409 }
       );
     }
 
     console.error("Registration error:", error);
     return NextResponse.json(
-      { error: "Failed to create user" },
+      { error: error.message || "Failed to create user. Please try again." },
       { status: 500 }
     );
   }
