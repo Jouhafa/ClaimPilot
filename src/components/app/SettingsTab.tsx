@@ -1,17 +1,36 @@
 "use client";
 
+import { useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useApp } from "@/lib/context";
 import { PWAInstallButton } from "./PWAInstallButton";
 import { AccountManagementTab } from "./AccountManagementTab";
+import { cn } from "@/lib/utils";
 
 interface SettingsTabProps {
   onNavigate?: (tab: string) => void;
 }
 
 export function SettingsTab({ onNavigate }: SettingsTabProps) {
-  const { profile } = useApp();
+  const { profile, deleteAllData, refreshData } = useApp();
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+
+  const handleDeleteAllData = async () => {
+    setIsDeleting(true);
+    try {
+      await deleteAllData();
+      await refreshData();
+      setShowDeleteConfirm(false);
+      // Optionally show a success message or navigate
+    } catch (error) {
+      console.error("Failed to delete all data:", error);
+      alert("Failed to delete all data. Please try again.");
+    } finally {
+      setIsDeleting(false);
+    }
+  };
 
   return (
     <div className="space-y-6 max-w-4xl mx-auto">
@@ -194,7 +213,13 @@ export function SettingsTab({ onNavigate }: SettingsTabProps) {
                 <p className="text-[15px] font-medium text-destructive" style={{ fontWeight: 500 }}>Delete All Data</p>
                 <p className="text-[13px] text-muted-foreground">Permanently delete all your data</p>
               </div>
-              <Button variant="outline" size="sm" className="text-destructive hover:text-destructive">
+              <Button 
+                variant="outline" 
+                size="sm" 
+                className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                onClick={() => setShowDeleteConfirm(true)}
+                disabled={isDeleting}
+              >
                 Delete
               </Button>
             </div>
@@ -222,6 +247,72 @@ export function SettingsTab({ onNavigate }: SettingsTabProps) {
           </div>
         </CardContent>
       </Card>
+
+      {/* Delete All Data Confirmation Modal */}
+      {showDeleteConfirm && (
+        <>
+          <div 
+            className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200"
+            onClick={() => !isDeleting && setShowDeleteConfirm(false)}
+          />
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <Card className="w-full max-w-md animate-in slide-in-from-bottom-4 duration-300" style={{ borderRadius: "16px" }}>
+              <CardHeader style={{ padding: "20px 20px 16px" }}>
+                <CardTitle className="text-[20px] text-destructive" style={{ fontWeight: 600 }}>
+                  Delete All Data
+                </CardTitle>
+                <CardDescription className="text-[14px]">
+                  This action cannot be undone
+                </CardDescription>
+              </CardHeader>
+              <CardContent style={{ padding: "0 20px 20px" }}>
+                <div className="space-y-4">
+                  <p className="text-[15px] text-muted-foreground">
+                    This will permanently delete:
+                  </p>
+                  <ul className="space-y-2 text-[14px] text-muted-foreground list-disc list-inside">
+                    <li>All transactions</li>
+                    <li>All goals and buckets</li>
+                    <li>All rules and merchant aliases</li>
+                    <li>All recurring transactions</li>
+                    <li>All account data</li>
+                    <li>All wraps and recaps</li>
+                    <li>All other app data</li>
+                  </ul>
+                  <p className="text-[14px] font-medium text-foreground pt-2">
+                    Your license will be preserved.
+                  </p>
+                  <div className="flex gap-3 pt-4">
+                    <Button
+                      variant="outline"
+                      onClick={() => setShowDeleteConfirm(false)}
+                      disabled={isDeleting}
+                      className="flex-1"
+                    >
+                      Cancel
+                    </Button>
+                    <Button
+                      variant="destructive"
+                      onClick={handleDeleteAllData}
+                      disabled={isDeleting}
+                      className="flex-1"
+                    >
+                      {isDeleting ? (
+                        <>
+                          <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2" />
+                          Deleting...
+                        </>
+                      ) : (
+                        "Delete All Data"
+                      )}
+                    </Button>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </>
+      )}
     </div>
   );
 }

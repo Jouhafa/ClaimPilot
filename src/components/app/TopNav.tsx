@@ -6,6 +6,7 @@ import { cn } from "@/lib/utils";
 import { useApp } from "@/lib/context";
 import { Badge } from "@/components/ui/badge";
 import { ThemeToggle } from "@/components/ThemeToggle";
+import { UserMenu } from "@/components/auth/UserMenu";
 import { getAutoTagStats } from "@/lib/autoTagger";
 import type { LicenseTier } from "@/lib/types";
 
@@ -537,6 +538,7 @@ export function TopNav({ activeTab, onNavigate, selectedMonth, onMonthChange, on
             </button>
 
             <ThemeToggle />
+            <UserMenu />
           </div>
         </div>
       </div>

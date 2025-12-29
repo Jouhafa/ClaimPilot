@@ -48,6 +48,7 @@ import {
   addBudget as addBudgetToStorage,
   updateBudget as updateBudgetInStorage,
   deleteBudget as deleteBudgetFromStorage,
+  deleteAllData,
 } from "./storage";
 import type { UserProfile } from "./appState";
 
@@ -83,6 +84,7 @@ interface AppContextType {
   updateTransactions: (ids: string[], updates: Partial<Transaction>) => Promise<void>;
   deleteTransaction: (id: string) => Promise<void>;
   deleteAllTransactions: () => Promise<void>;
+  deleteAllData: () => Promise<void>;
   splitTransaction: (id: string, splits: { percentage: number; tag: Transaction["tag"] }[]) => Promise<void>;
   
   // Rule functions
@@ -270,6 +272,25 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const deleteAllTransactions = async () => {
     await clearAllTransactions();
     setTransactions([]);
+  };
+
+  const deleteAllDataHandler = async () => {
+    await deleteAllData();
+    // Clear all state
+    setTransactions([]);
+    setRules([]);
+    setBatches([]);
+    setAliases([]);
+    setGoals([]);
+    setBuckets([]);
+    setCategoryRules([]);
+    setRecurringState([]);
+    setIncomeConfigState(null);
+    setCardSafetyState(null);
+    setProfileState(null);
+    setAccounts([]);
+    setBudgets([]);
+    // Note: License is preserved
   };
 
   const splitTransaction = async (
@@ -630,6 +651,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         updateTransactions,
         deleteTransaction,
         deleteAllTransactions,
+        deleteAllData: deleteAllDataHandler,
         splitTransaction,
         addRule,
         updateRule,

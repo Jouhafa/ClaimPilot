@@ -625,3 +625,29 @@ export async function deleteBudget(id: string): Promise<Budget[]> {
   await saveBudgets(filtered);
   return filtered;
 }
+
+// Delete all data (for privacy/data controls)
+export async function deleteAllData(): Promise<void> {
+  // Delete all data types
+  await Promise.all([
+    del(TRANSACTIONS_KEY),
+    del(RULES_KEY),
+    del(CARD_SAFETY_KEY),
+    del(BATCHES_KEY),
+    del(PROFILES_KEY),
+    del(ALIASES_KEY),
+    del(GOALS_KEY),
+    del(BUCKETS_KEY),
+    del(CATEGORY_RULES_KEY),
+    del(RECURRING_KEY),
+    del(INCOME_KEY),
+    del(PROFILE_KEY),
+    del(WRAPS_KEY),
+    del(ROI_TRACKER_KEY),
+    del(REMINDERS_KEY),
+    del(ACCOUNTS_KEY),
+    del(EXPENSE_COVERAGE_KEY),
+    del(BUDGETS_KEY),
+    // Note: LICENSE_KEY is intentionally preserved - user may want to keep their license
+  ]);
+}
