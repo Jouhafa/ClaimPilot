@@ -16,7 +16,7 @@ import { ReviewTab } from "./ReviewTab";
 import { ReimbursementsTab } from "./ReimbursementsTab";
 import { CardSafetyTab } from "./CardSafetyTab";
 import { ExportTab } from "./ExportTab";
-import { AnalyticsDashboard } from "./AnalyticsDashboard";
+import { InsightsPage } from "./InsightsPage";
 import { RecurringTab } from "./RecurringTab";
 import { GoalsTab } from "./GoalsTab";
 import { BucketsTab } from "./BucketsTab";
@@ -585,17 +585,7 @@ function AppContent() {
       case "recurring":
         return <RecurringTab />;
       case "analytics":
-        return (
-          <div className="space-y-6">
-            <div>
-              <h1 className="text-3xl font-bold tracking-tight">Spending Insights</h1>
-              <p className="text-muted-foreground mt-2">
-                Full visibility into where your money goes
-              </p>
-            </div>
-            <AnalyticsDashboard onNavigate={handleNavigate} />
-          </div>
-        );
+        return <InsightsPage onNavigate={handleNavigate} />;
       case "goals":
         return (
           <PaywallGate
@@ -865,6 +855,7 @@ function AppContent() {
           onSkip={handleRecapComplete}
           wrapSnapshot={wrapSnapshot}
           monthKey={wrapMonthKey}
+          onNavigate={handleNavigate}
         />
       )}
 

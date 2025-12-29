@@ -16,13 +16,15 @@ interface MonthlyRecapJourneyProps {
   onSkip?: () => void;
   wrapSnapshot?: WrapSnapshot | null; // If provided, replay from snapshot
   monthKey?: string; // YYYY-MM for generating new wrap
+  onNavigate?: (tab: string) => void; // For deep-linking to tabs
 }
 
 export function MonthlyRecapJourney({ 
   onComplete, 
   onSkip, 
   wrapSnapshot,
-  monthKey 
+  monthKey,
+  onNavigate
 }: MonthlyRecapJourneyProps) {
   const { transactions, recurring, goals, profile } = useApp();
   const [currentSlide, setCurrentSlide] = useState(0);
@@ -197,7 +199,7 @@ export function MonthlyRecapJourney({
     return null;
   }
 
-  const slides = buildSlides(wrapData, handleComplete);
+  const slides = buildSlides(wrapData, handleComplete, onNavigate);
 
   const currentSlideData = slides[currentSlide];
 
@@ -216,14 +218,14 @@ export function MonthlyRecapJourney({
         />
       </div>
 
-      {/* Progress dots */}
+      {/* Progress dots - increased contrast */}
       <div className="flex justify-center gap-2 pt-4 pb-2">
         {slides.map((_, index) => (
           <div
             key={index}
             className={cn(
-              "h-1.5 rounded-full transition-all duration-200",
-              index === currentSlide ? "bg-primary w-8" : "bg-muted w-1.5"
+              "h-2 rounded-full transition-all duration-200",
+              index === currentSlide ? "bg-primary w-8 opacity-100" : "bg-muted/60 w-2 opacity-60"
             )}
           />
         ))}
@@ -274,19 +276,25 @@ export function MonthlyRecapJourney({
           </Button>
         </div>
 
-        <Button
-          onClick={currentSlide === slides.length - 1 ? handleComplete : handleNext}
-          size="lg"
-          className="min-h-[44px] px-8 rounded-xl"
-        >
-          {currentSlide === slides.length - 1 ? "Done" : "Next →"}
-        </Button>
+        {currentSlide !== slides.length - 1 && (
+          <Button
+            onClick={handleNext}
+            size="lg"
+            className="min-h-[44px] px-8 rounded-xl"
+          >
+            Next →
+          </Button>
+        )}
       </div>
     </div>
   );
 }
 
-function buildSlides(wrapData: WrapData, onComplete: () => void): Array<{
+function buildSlides(
+  wrapData: WrapData, 
+  onComplete: () => void,
+  onNavigate?: (tab: string) => void
+): Array<{
   id: string;
   title: string;
   content: React.ReactNode;
@@ -327,8 +335,28 @@ function buildSlides(wrapData: WrapData, onComplete: () => void): Array<{
             </p>
           </div>
           <div className="p-6 rounded-2xl bg-muted/50 border">
+            <p className="text-sm text-muted-foreground mb-2">Income</p>
+            <p className="text-3xl font-bold text-blue-600">
+              {wrapData.totalIncome > 0 ? (
+                <>
+                  {wrapData.currency} {wrapData.totalIncome.toLocaleString(undefined, { 
+                    minimumFractionDigits: 0, 
+                    maximumFractionDigits: 0 
+                  })}
+                </>
+              ) : (
+                <span className="text-muted-foreground text-lg">Not linked — Add</span>
+              )}
+            </p>
+          </div>
+          <div className="p-6 rounded-2xl bg-muted/50 border">
             <p className="text-sm text-muted-foreground mb-2">Saved</p>
-            <p className="text-3xl font-bold text-green-600">
+            <p className={cn(
+              "text-3xl font-bold",
+              wrapData.totalSaved > 100 ? "text-green-600" :
+              wrapData.totalSaved < -100 ? "text-red-600" :
+              "text-foreground"
+            )}>
               {wrapData.currency} {wrapData.totalSaved.toLocaleString(undefined, { 
                 minimumFractionDigits: 0, 
                 maximumFractionDigits: 0 
@@ -344,13 +372,29 @@ function buildSlides(wrapData: WrapData, onComplete: () => void): Array<{
               })}
             </p>
           </div>
-          <div className="p-6 rounded-2xl bg-muted/50 border">
-            <p className="text-sm text-muted-foreground mb-2">Status</p>
-            <p className="text-3xl font-bold">
-              {wrapData.isOnTrack ? "✓ On Track" : "⚠ Review"}
+        </div>
+        {/* Review Status Card - explicit and clickable */}
+        {wrapData.needsReviewCount && wrapData.needsReviewCount > 0 ? (
+          <div 
+            onClick={() => onNavigate?.("review")}
+            className={cn(
+              "p-6 rounded-2xl border-2 cursor-pointer transition-all hover:shadow-lg",
+              "bg-amber-500/10 border-amber-500/30 hover:border-amber-500/50"
+            )}
+          >
+            <p className="text-lg font-semibold mb-1">
+              Needs review: {wrapData.needsReviewCount} transaction{wrapData.needsReviewCount > 1 ? "s" : ""}
+            </p>
+            <p className="text-sm text-muted-foreground">
+              {wrapData.reviewReasons?.join(" / ") || "Untagged / reimbursable checks / duplicates"}
             </p>
           </div>
-        </div>
+        ) : (
+          <div className="p-6 rounded-2xl bg-muted/50 border">
+            <p className="text-lg font-semibold">✓ On Track</p>
+            <p className="text-sm text-muted-foreground">All transactions are reviewed</p>
+          </div>
+        )}
       </div>
     ),
   });
@@ -358,9 +402,10 @@ function buildSlides(wrapData: WrapData, onComplete: () => void): Array<{
   // Slide 3: Top categories (max 5 bars)
   slides.push({
     id: "categories",
-    title: "Top Categories",
+    title: "Where did your money go?",
     content: (
       <div className="space-y-4 w-full max-w-2xl mx-auto">
+        <p className="text-center text-muted-foreground mb-6">Top Categories</p>
         {wrapData.topCategories.map((cat, idx) => {
           const config = CATEGORY_CONFIG[cat.category];
           return (
@@ -373,12 +418,17 @@ function buildSlides(wrapData: WrapData, onComplete: () => void): Array<{
                   />
                   <span className="font-medium">{config.label}</span>
                 </div>
-                <span className="text-muted-foreground">
-                  {wrapData.currency} {cat.amount.toLocaleString(undefined, { 
-                    minimumFractionDigits: 0, 
-                    maximumFractionDigits: 0 
-                  })}
-                </span>
+                <div className="flex items-center gap-3">
+                  <span className="text-muted-foreground">
+                    {wrapData.currency} {cat.amount.toLocaleString(undefined, { 
+                      minimumFractionDigits: 0, 
+                      maximumFractionDigits: 0 
+                    })}
+                  </span>
+                  <span className="text-sm font-semibold text-muted-foreground min-w-[3rem] text-right">
+                    {cat.percentage.toFixed(0)}%
+                  </span>
+                </div>
               </div>
               <div className="h-3 bg-muted rounded-full overflow-hidden">
                 <div 
@@ -400,7 +450,7 @@ function buildSlides(wrapData: WrapData, onComplete: () => void): Array<{
   if (wrapData.monthOverMonthChanges.length > 0) {
     slides.push({
       id: "changes",
-      title: "Changes vs Last Month",
+      title: "What changed since last month?",
       content: (
         <div className="space-y-4 w-full max-w-2xl mx-auto">
           {wrapData.monthOverMonthChanges.map((change, idx) => (
@@ -427,7 +477,7 @@ function buildSlides(wrapData: WrapData, onComplete: () => void): Array<{
   if (wrapData.recurringSummary.count > 0) {
     slides.push({
       id: "recurring",
-      title: "Recurring & Subscriptions",
+      title: "What are you paying for every month?",
       content: (
         <div className="space-y-4 w-full max-w-2xl mx-auto">
           <div className="text-center mb-6">
@@ -461,13 +511,19 @@ function buildSlides(wrapData: WrapData, onComplete: () => void): Array<{
   if (wrapData.reimbursementsPipeline.total > 0) {
     slides.push({
       id: "reimbursements",
-      title: "Reimbursements Pipeline",
+      title: "Are you missing any reimbursements?",
       content: (
         <div className="space-y-4 w-full max-w-2xl mx-auto">
+          <p className="text-center text-muted-foreground mb-6">Reimbursements Pipeline</p>
           <div className="grid grid-cols-3 gap-4">
-            <div className="p-4 rounded-xl bg-muted/50 border text-center">
+            <div className="p-4 rounded-xl bg-muted/50 border text-center relative group">
               <p className="text-2xl font-bold">{wrapData.reimbursementsPipeline.draft}</p>
-              <p className="text-sm text-muted-foreground mt-1">Draft</p>
+              <p className="text-sm text-muted-foreground mt-1">Not submitted</p>
+              <div className="absolute -top-2 -right-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                <div className="bg-background border rounded-lg px-2 py-1 text-xs shadow-lg">
+                  Draft = prepared but not submitted yet
+                </div>
+              </div>
             </div>
             <div className="p-4 rounded-xl bg-muted/50 border text-center">
               <p className="text-2xl font-bold">{wrapData.reimbursementsPipeline.submitted}</p>
@@ -483,53 +539,161 @@ function buildSlides(wrapData: WrapData, onComplete: () => void): Array<{
     });
   }
 
-  // Slide 7: Flags only if any
+  // Slide 7: Flags only if any - show items directly
   if (wrapData.flags.length > 0) {
-    slides.push({
-      id: "flags",
-      title: "Items to Review",
-      content: (
-        <div className="space-y-4 w-full max-w-2xl mx-auto">
-          {wrapData.flags.map((flag, idx) => (
-            <div key={idx} className="p-4 rounded-xl bg-amber-500/10 border border-amber-500/20">
-              <p className="font-medium mb-1">{flag.message}</p>
+    const unusualFlag = wrapData.flags.find(f => f.type === "unusual");
+    if (unusualFlag && unusualFlag.transactions && unusualFlag.transactions.length > 0) {
+      slides.push({
+        id: "flags",
+        title: "Items to Review",
+        content: (
+          <div className="space-y-4 w-full max-w-2xl mx-auto">
+            <p className="text-center text-muted-foreground mb-6">
+              {unusualFlag.count} unusually large transaction{unusualFlag.count > 1 ? "s" : ""}
+            </p>
+            <div className="space-y-3">
+              {unusualFlag.transactions.slice(0, 3).map((tx) => (
+                <div key={tx.id} className="p-4 rounded-xl bg-amber-500/10 border border-amber-500/20">
+                  <div className="flex items-center justify-between">
+                    <div className="flex-1">
+                      <p className="font-medium">{tx.merchant}</p>
+                      <p className="text-sm text-muted-foreground">{new Date(tx.date).toLocaleDateString()}</p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-lg font-bold">
+                        {wrapData.currency} {tx.amount.toLocaleString(undefined, { 
+                          minimumFractionDigits: 0, 
+                          maximumFractionDigits: 0 
+                        })}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              ))}
             </div>
-          ))}
-        </div>
-      ),
-    });
+            {onNavigate && (
+              <div className="pt-4">
+                <Button 
+                  onClick={() => onNavigate("review")}
+                  className="w-full"
+                  size="lg"
+                >
+                  Review Now
+                </Button>
+              </div>
+            )}
+          </div>
+        ),
+      });
+    } else {
+      // Fallback for other flags
+      slides.push({
+        id: "flags",
+        title: "Items to Review",
+        content: (
+          <div className="space-y-4 w-full max-w-2xl mx-auto">
+            {wrapData.flags.map((flag, idx) => (
+              <div key={idx} className="p-4 rounded-xl bg-amber-500/10 border border-amber-500/20">
+                <p className="font-medium mb-1">{flag.message}</p>
+              </div>
+            ))}
+          </div>
+        ),
+      });
+    }
   }
 
-  // Slide 8: Final - Next 3 moves
+  // Slide 8: Final - Next 3 moves (clickable)
   slides.push({
     id: "moves",
     title: "Your Next 3 Moves",
     content: (
       <div className="space-y-4 w-full max-w-2xl mx-auto">
-        {wrapData.top3Moves.map((move, idx) => (
-          <div key={move.id} className="p-6 rounded-xl bg-primary/10 border border-primary/20">
-            <div className="flex items-start gap-4">
-              <div className="w-10 h-10 rounded-full bg-primary/20 flex items-center justify-center flex-shrink-0">
-                <span className="text-lg font-bold">{idx + 1}</span>
-              </div>
-              <div className="flex-1">
-                <h3 className="font-semibold text-lg mb-1">{move.title}</h3>
-                <p className="text-muted-foreground mb-3">{move.description}</p>
-                <div className="flex items-center gap-2">
-                  <span className="text-xs text-muted-foreground">⏱ {move.timeEstimate}</span>
-                  <span className={cn(
-                    "text-xs px-2 py-0.5 rounded-full",
-                    move.priority === "high" ? "bg-red-500/20 text-red-600" :
-                    move.priority === "medium" ? "bg-amber-500/20 text-amber-600" :
-                    "bg-blue-500/20 text-blue-600"
-                  )}>
-                    {move.priority}
-                  </span>
+        {wrapData.top3Moves.map((move, idx) => {
+          const getDestination = (action: string) => {
+            switch (action) {
+              case "review": return "review";
+              case "reimbursements": return "reimbursements";
+              case "goals": return "goals";
+              case "export": return "export";
+              default: return "hub";
+            }
+          };
+          const destination = getDestination(move.action);
+          
+          return (
+            <div 
+              key={move.id} 
+              onClick={() => onNavigate?.(destination)}
+              className={cn(
+                "p-6 rounded-xl bg-primary/10 border border-primary/20",
+                "cursor-pointer transition-all hover:shadow-lg hover:border-primary/40",
+                "group"
+              )}
+            >
+              <div className="flex items-start gap-4">
+                <div className="w-10 h-10 rounded-full bg-primary/20 flex items-center justify-center flex-shrink-0">
+                  <span className="text-lg font-bold">{idx + 1}</span>
+                </div>
+                <div className="flex-1">
+                  <h3 className="font-semibold text-lg mb-1">{move.title}</h3>
+                  <p className="text-muted-foreground mb-3">{move.description}</p>
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs text-muted-foreground">⏱ {move.timeEstimate}</span>
+                    <span className={cn(
+                      "text-xs px-2 py-0.5 rounded-full",
+                      move.priority === "high" ? "bg-red-500/20 text-red-600" :
+                      move.priority === "medium" ? "bg-amber-500/20 text-amber-600" :
+                      "bg-blue-500/20 text-blue-600"
+                    )}>
+                      {move.priority}
+                    </span>
+                    <span className="text-xs text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity">
+                      → Opens {destination === "review" ? "Review" : destination === "reimbursements" ? "Reimbursements" : destination}
+                    </span>
+                  </div>
                 </div>
               </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
+      </div>
+    ),
+  });
+
+  // Slide 9: Ending - Celebratory slide
+  slides.push({
+    id: "ending",
+    title: "That's a wrap.",
+    content: (
+      <div className="space-y-6 w-full max-w-2xl mx-auto text-center">
+        <div className="text-6xl mb-4">🎉</div>
+        <p className="text-xl text-muted-foreground">
+          Now let's handle your next 3 moves.
+        </p>
+        <div className="flex flex-col sm:flex-row gap-4 justify-center pt-6">
+          <Button
+            onClick={() => {
+              onNavigate?.("hub");
+              onComplete();
+            }}
+            size="lg"
+            className="min-h-[44px] px-8"
+          >
+            Go to Next 3 Moves
+          </Button>
+          <Button
+            onClick={() => {
+              onNavigate?.("hub");
+              onComplete();
+            }}
+            variant="outline"
+            size="lg"
+            className="min-h-[44px] px-8"
+          >
+            Back to Hub
+          </Button>
+        </div>
       </div>
     ),
   });

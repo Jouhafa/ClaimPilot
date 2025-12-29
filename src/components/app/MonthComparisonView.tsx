@@ -7,7 +7,7 @@ import { cn } from "@/lib/utils";
 import { useApp } from "@/lib/context";
 import { CATEGORY_CONFIG, type TransactionCategory } from "@/lib/types";
 import { getMonthOverMonthComparison } from "@/lib/categories";
-import type { Transaction } from "@/lib/types";
+import { AnimatedCounter } from "./AnimatedChart";
 
 interface MonthComparisonViewProps {
   selectedMonth: Date;
@@ -123,45 +123,45 @@ export function MonthComparisonView({ selectedMonth }: MonthComparisonViewProps)
   previousMonth.setMonth(previousMonth.getMonth() - 1);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       {/* Header */}
       <div>
-        <h2 className="text-2xl font-bold mb-2">Month Comparison</h2>
-        <p className="text-muted-foreground">
+        <h2 className="text-[18px] font-semibold mb-1" style={{ fontWeight: 600 }}>Month Comparison</h2>
+        <p className="text-[13px] text-muted-foreground">
           {formatMonth(selectedMonth)} vs {formatMonth(previousMonth)}
         </p>
       </div>
 
       {/* Total Spending Comparison */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Total Spending</CardTitle>
-          <CardDescription>Overall spending comparison</CardDescription>
+      <Card className="border border-border/50">
+        <CardHeader className="pb-3">
+          <CardTitle className="text-[16px] font-semibold">Total Spending</CardTitle>
+          <CardDescription className="text-[13px]">Overall spending comparison</CardDescription>
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <p className="text-sm text-muted-foreground">This Month</p>
-              <p className="text-2xl font-bold">
-                AED {comparisonData.totalSpending.selected.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+            <div className="space-y-1">
+              <p className="text-[13px] text-muted-foreground">This Month</p>
+              <p className="text-[20px] font-bold">
+                <AnimatedCounter value={comparisonData.totalSpending.selected} decimals={0} /> <span className="text-xs font-normal">AED</span>
               </p>
             </div>
-            <div className="space-y-2">
-              <p className="text-sm text-muted-foreground">Last Month</p>
-              <p className="text-2xl font-bold text-muted-foreground">
-                AED {comparisonData.totalSpending.previous.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+            <div className="space-y-1">
+              <p className="text-[13px] text-muted-foreground">Last Month</p>
+              <p className="text-[20px] font-bold text-muted-foreground">
+                <AnimatedCounter value={comparisonData.totalSpending.previous} decimals={0} /> <span className="text-xs font-normal">AED</span>
               </p>
             </div>
           </div>
-          <div className="mt-4 pt-4 border-t">
+          <div className="mt-4 pt-4 border-t border-border">
             <div className="flex items-center justify-between">
-              <span className="text-sm font-medium">Change</span>
+              <span className="text-[13px] font-medium">Change</span>
               <Badge
                 variant={comparisonData.totalSpending.change > 0 ? "destructive" : comparisonData.totalSpending.change < 0 ? "default" : "secondary"}
-                className="text-sm px-3 py-1"
+                className="text-[12px] px-2 py-1"
               >
                 {comparisonData.totalSpending.change > 0 ? "+" : ""}
-                {comparisonData.totalSpending.change.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })} AED
+                <AnimatedCounter value={Math.abs(comparisonData.totalSpending.change)} decimals={0} /> AED
                 {" "}({comparisonData.totalSpending.changePercent > 0 ? "+" : ""}
                 {comparisonData.totalSpending.changePercent.toFixed(1)}%)
               </Badge>
@@ -171,42 +171,45 @@ export function MonthComparisonView({ selectedMonth }: MonthComparisonViewProps)
       </Card>
 
       {/* Category Deltas */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Category Changes</CardTitle>
-          <CardDescription>Spending by category comparison</CardDescription>
+      <Card className="border border-border/50">
+        <CardHeader className="pb-3">
+          <CardTitle className="text-[16px] font-semibold">Category Changes</CardTitle>
+          <CardDescription className="text-[13px]">Spending by category comparison</CardDescription>
         </CardHeader>
         <CardContent>
           {comparisonData.categoryComparison.length === 0 ? (
             <p className="text-sm text-muted-foreground text-center py-8">No category data available</p>
           ) : (
-            <div className="space-y-3">
+            <div className="space-y-2">
               {comparisonData.categoryComparison
                 .filter((c) => c.currentMonth > 0 || c.previousMonth > 0)
                 .sort((a, b) => Math.abs(b.changePercentage) - Math.abs(a.changePercentage))
                 .slice(0, 8)
                 .map(({ category, label, currentMonth, previousMonth, change, changePercentage }) => (
-                  <div key={category} className="flex items-center justify-between p-3 rounded-lg border hover:bg-muted/30 transition-colors">
-                    <div className="flex items-center gap-3 flex-1">
+                  <div
+                    key={category}
+                    className="flex items-center justify-between p-3 rounded-lg border border-transparent hover:border-border hover:bg-muted/30 transition-colors"
+                  >
+                    <div className="flex items-center gap-3 flex-1 min-w-0">
                       <div
-                        className="w-4 h-4 rounded-full"
+                        className="w-3 h-3 rounded-full flex-shrink-0"
                         style={{ backgroundColor: CATEGORY_CONFIG[category]?.color || "#6b7280" }}
                       />
-                      <div className="flex-1">
-                        <p className="text-sm font-medium">{label}</p>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-[13px] font-medium truncate">{label}</p>
                         <div className="flex items-center gap-4 mt-1">
-                          <span className="text-xs text-muted-foreground">
-                            This: AED {currentMonth.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                          <span className="text-[11px] text-muted-foreground">
+                            This: <AnimatedCounter value={currentMonth} decimals={0} /> AED
                           </span>
-                          <span className="text-xs text-muted-foreground">
-                            Last: AED {previousMonth.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                          <span className="text-[11px] text-muted-foreground">
+                            Last: <AnimatedCounter value={previousMonth} decimals={0} /> AED
                           </span>
                         </div>
                       </div>
                     </div>
                     <Badge
                       variant={change > 0 ? "destructive" : change < 0 ? "default" : "secondary"}
-                      className="ml-4"
+                      className="ml-4 text-[11px]"
                     >
                       {change > 0 ? "+" : ""}{changePercentage.toFixed(0)}%
                     </Badge>
@@ -219,25 +222,32 @@ export function MonthComparisonView({ selectedMonth }: MonthComparisonViewProps)
 
       {/* Top Merchant Changes */}
       {comparisonData.merchantDeltas.length > 0 && (
-        <Card>
-          <CardHeader>
-            <CardTitle>Top Merchant Changes</CardTitle>
-            <CardDescription>Merchants with biggest spending changes</CardDescription>
+        <Card className="border border-border/50">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-[16px] font-semibold">Top Merchant Changes</CardTitle>
+            <CardDescription className="text-[13px]">Merchants with biggest spending changes</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="space-y-2">
               {comparisonData.merchantDeltas.map((merchant, idx) => (
-                <div key={idx} className="flex items-center justify-between p-2 rounded-lg hover:bg-muted/30">
-                  <div className="flex-1">
-                    <p className="text-sm font-medium">{merchant.merchant}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {merchant.selected > 0 && `This: AED ${merchant.selected.toLocaleString(undefined, { minimumFractionDigits: 0 })}`}
-                      {merchant.previous > 0 && ` • Last: AED ${merchant.previous.toLocaleString(undefined, { minimumFractionDigits: 0 })}`}
+                <div
+                  key={idx}
+                  className="flex items-center justify-between p-3 rounded-lg border border-transparent hover:border-border hover:bg-muted/30 transition-colors"
+                >
+                  <div className="flex-1 min-w-0">
+                    <p className="text-[13px] font-medium truncate">{merchant.merchant}</p>
+                    <p className="text-[11px] text-muted-foreground mt-1">
+                      {merchant.selected > 0 && (
+                        <>This: <AnimatedCounter value={merchant.selected} decimals={0} /> AED</>
+                      )}
+                      {merchant.previous > 0 && (
+                        <> • Last: <AnimatedCounter value={merchant.previous} decimals={0} /> AED</>
+                      )}
                     </p>
                   </div>
                   <Badge
                     variant={merchant.change > 0 ? "destructive" : merchant.change < 0 ? "default" : "secondary"}
-                    className="ml-4"
+                    className="ml-4 text-[11px]"
                   >
                     {merchant.change > 0 ? "+" : ""}{merchant.changePercent.toFixed(0)}%
                   </Badge>
@@ -249,26 +259,26 @@ export function MonthComparisonView({ selectedMonth }: MonthComparisonViewProps)
       )}
 
       {/* Recurring Comparison */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Recurring & Subscriptions</CardTitle>
-          <CardDescription>Active recurring transactions</CardDescription>
+      <Card className="border border-border/50">
+        <CardHeader className="pb-3">
+          <CardTitle className="text-[16px] font-semibold">Recurring & Subscriptions</CardTitle>
+          <CardDescription className="text-[13px]">Active recurring transactions</CardDescription>
         </CardHeader>
         <CardContent>
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-muted-foreground">This Month</p>
-              <p className="text-xl font-bold">{comparisonData.recurring.selected}</p>
+              <p className="text-[13px] text-muted-foreground">This Month</p>
+              <p className="text-[18px] font-bold">{comparisonData.recurring.selected}</p>
             </div>
             <div>
-              <p className="text-sm text-muted-foreground">Last Month</p>
-              <p className="text-xl font-bold text-muted-foreground">{comparisonData.recurring.previous}</p>
+              <p className="text-[13px] text-muted-foreground">Last Month</p>
+              <p className="text-[18px] font-bold text-muted-foreground">{comparisonData.recurring.previous}</p>
             </div>
             <div>
-              <p className="text-sm text-muted-foreground">Change</p>
+              <p className="text-[13px] text-muted-foreground">Change</p>
               <Badge
                 variant={comparisonData.recurring.change > 0 ? "destructive" : comparisonData.recurring.change < 0 ? "default" : "secondary"}
-                className="text-sm"
+                className="text-[12px]"
               >
                 {comparisonData.recurring.change > 0 ? "+" : ""}{comparisonData.recurring.change}
               </Badge>
@@ -279,4 +289,3 @@ export function MonthComparisonView({ selectedMonth }: MonthComparisonViewProps)
     </div>
   );
 }
-

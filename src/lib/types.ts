@@ -470,9 +470,12 @@ export interface WrapData {
   
   // Snapshot
   totalSpent: number;
+  totalIncome: number;
   totalSaved: number;
   totalReimbursable: number;
   isOnTrack: boolean;
+  needsReviewCount?: number; // Count of transactions needing review
+  reviewReasons?: string[]; // Reasons for review
   
   // Top categories (max 5)
   topCategories: Array<{
@@ -513,6 +516,12 @@ export interface WrapData {
     type: "low_confidence" | "untagged" | "unusual";
     count: number;
     message: string;
+    transactions?: Array<{
+      id: string;
+      merchant: string;
+      amount: number;
+      date: string;
+    }>;
   }>;
   
   // Top 3 moves

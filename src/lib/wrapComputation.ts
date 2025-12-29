@@ -130,12 +130,22 @@ export function computeWrapData(options: ComputeWrapOptions): WrapData {
   const avgAmount = expenses.length > 0 
     ? expenses.reduce((sum, tx) => sum + Math.abs(tx.amount), 0) / expenses.length 
     : 0;
-  const unusual = expenses.filter((tx) => Math.abs(tx.amount) > avgAmount * 3).length;
-  if (unusual > 0) {
+  const unusualTransactions = expenses
+    .filter((tx) => Math.abs(tx.amount) > avgAmount * 3)
+    .sort((a, b) => Math.abs(b.amount) - Math.abs(a.amount))
+    .slice(0, 3)
+    .map((tx) => ({
+      id: tx.id,
+      merchant: tx.merchant,
+      amount: Math.abs(tx.amount),
+      date: tx.date,
+    }));
+  if (unusualTransactions.length > 0) {
     flags.push({
       type: "unusual",
-      count: unusual,
-      message: `${unusual} unusually large transaction${unusual > 1 ? "s" : ""}`,
+      count: unusualTransactions.length,
+      message: `${unusualTransactions.length} unusually large transaction${unusualTransactions.length > 1 ? "s" : ""}`,
+      transactions: unusualTransactions,
     });
   }
 
@@ -203,13 +213,29 @@ export function computeWrapData(options: ComputeWrapOptions): WrapData {
   // Check if on track (simplified - could use goals/buckets)
   const isOnTrack = totalSaved >= 0; // Positive savings
 
+  // Calculate review count and reasons
+  const untaggedCount = filteredTransactions.filter((tx) => !tx.tag && !tx.suggestedTag).length;
+  const lowConfidenceCount = filteredTransactions.filter((tx) => tx.tagConfidence === "low").length;
+  const reimbursableDraftCount = filteredTransactions.filter((tx) => tx.tag === "reimbursable" && tx.status === "draft").length;
+  // Note: duplicates detection would need to be implemented separately
+  const duplicatesCount = 0;
+  
+  const needsReviewCount = untaggedCount + lowConfidenceCount + reimbursableDraftCount + duplicatesCount;
+  const reviewReasons: string[] = [];
+  if (untaggedCount > 0) reviewReasons.push("Untagged");
+  if (reimbursableDraftCount > 0) reviewReasons.push("Reimbursable checks");
+  if (duplicatesCount > 0) reviewReasons.push("Duplicates");
+
   return {
     heroNumber,
     heroLabel,
     totalSpent,
+    totalIncome,
     totalSaved,
     totalReimbursable,
     isOnTrack,
+    needsReviewCount,
+    reviewReasons,
     topCategories,
     monthOverMonthChanges,
     recurringSummary: {

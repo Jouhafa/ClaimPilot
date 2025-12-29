@@ -20,7 +20,7 @@ import { SpendingSummaryExport } from "./SpendingSummaryExport";
 import { SmartSuggestions } from "./SmartSuggestions";
 import { MonthlyNarrative } from "./MonthlyNarrative";
 import { MonthComparisonView } from "./MonthComparisonView";
-import { AnimatedBarChart, AnimatedPieChart, AnimatedProgressBar, AnimatedCounter } from "./AnimatedChart";
+import { AnimatedBarChart, AnimatedPieChart, AnimatedProgressBar, AnimatedCounter, ChartCard } from "./AnimatedChart";
 import { motion, AnimatePresence } from "framer-motion";
 
 type AnalyticsView = "overview" | "categories" | "trends" | "merchants" | "insights" | "comparison";
@@ -419,7 +419,7 @@ export function AnalyticsDashboard({ onNavigate, selectedMonth, showComparison =
 
               {/* Charts */}
               <div className="space-y-4">
-                <Card>
+                <ChartCard>
                   <CardHeader className="pb-3">
                     <CardTitle className="text-base">Bar Chart</CardTitle>
                     <CardDescription className="text-xs">Top categories comparison</CardDescription>
@@ -438,9 +438,9 @@ export function AnalyticsDashboard({ onNavigate, selectedMonth, showComparison =
                       </div>
                     )}
                   </CardContent>
-                </Card>
+                </ChartCard>
 
-                <Card>
+                <ChartCard>
                   <CardHeader className="pb-3">
                     <CardTitle className="text-base">Distribution</CardTitle>
                     <CardDescription className="text-xs">Pie chart breakdown</CardDescription>
@@ -459,7 +459,7 @@ export function AnalyticsDashboard({ onNavigate, selectedMonth, showComparison =
                       </div>
                     )}
                   </CardContent>
-                </Card>
+                </ChartCard>
               </div>
             </div>
           </div>
