@@ -4,8 +4,13 @@ import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useApp } from "@/lib/context";
 import { PWAInstallButton } from "./PWAInstallButton";
+import { RulesManager } from "./RulesManager";
+import { MerchantManager } from "./MerchantManager";
 import { cn } from "@/lib/utils";
 
 interface SettingsTabProps {
@@ -15,11 +20,19 @@ interface SettingsTabProps {
 type SettingsSection = "general" | "data-privacy" | "notifications" | "rules-merchants" | "buckets-goals" | "statement-defaults" | "account-management";
 
 export function SettingsTab({ onNavigate }: SettingsTabProps) {
-  const { profile, deleteAllData, refreshData } = useApp();
+  const { profile, setProfile, deleteAllData, refreshData } = useApp();
   const [activeSection, setActiveSection] = useState<SettingsSection>("general");
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [showProfileEdit, setShowProfileEdit] = useState(false);
+  const [showRulesManager, setShowRulesManager] = useState(false);
+  const [showMerchantManager, setShowMerchantManager] = useState(false);
+  const [showStatementTypeModal, setShowStatementTypeModal] = useState(false);
+  const [editingField, setEditingField] = useState<"nickname" | "currency" | null>(null);
+  const [editNickname, setEditNickname] = useState("");
+  const [editCurrency, setEditCurrency] = useState("AED");
+  const [editStatementType, setEditStatementType] = useState<"credit" | "debit">("credit");
 
   const handleDeleteAllData = async () => {
     setIsDeleting(true);
@@ -122,7 +135,15 @@ export function SettingsTab({ onNavigate }: SettingsTabProps) {
                       <p className="text-[15px] font-medium" style={{ fontWeight: 500 }}>Nickname</p>
                       <p className="text-[13px] text-muted-foreground">{profile?.nickname || "Not set"}</p>
                     </div>
-                    <Button variant="outline" size="sm">
+                    <Button 
+                      variant="outline" 
+                      size="sm"
+                      onClick={() => {
+                        setEditNickname(profile?.nickname || "");
+                        setEditingField("nickname");
+                        setShowProfileEdit(true);
+                      }}
+                    >
                       Edit
                     </Button>
                   </div>
@@ -131,7 +152,15 @@ export function SettingsTab({ onNavigate }: SettingsTabProps) {
                       <p className="text-[15px] font-medium" style={{ fontWeight: 500 }}>Currency</p>
                       <p className="text-[13px] text-muted-foreground">{profile?.currency || "AED"}</p>
                     </div>
-                    <Button variant="outline" size="sm">
+                    <Button 
+                      variant="outline" 
+                      size="sm"
+                      onClick={() => {
+                        setEditCurrency(profile?.currency || "AED");
+                        setEditingField("currency");
+                        setShowProfileEdit(true);
+                      }}
+                    >
                       Edit
                     </Button>
                   </div>
@@ -173,9 +202,18 @@ export function SettingsTab({ onNavigate }: SettingsTabProps) {
                   <div className="flex items-center justify-between">
                     <div>
                       <p className="text-[15px] font-medium" style={{ fontWeight: 500 }}>Default Statement Type</p>
-                      <p className="text-[13px] text-muted-foreground">Debit / Credit</p>
+                      <p className="text-[13px] text-muted-foreground">
+                        {profile?.defaultStatementType === "credit" ? "Credit Card" : profile?.defaultStatementType === "debit" ? "Debit / Current / Savings Account" : "Not set"}
+                      </p>
                     </div>
-                    <Button variant="outline" size="sm">
+                    <Button 
+                      variant="outline" 
+                      size="sm"
+                      onClick={() => {
+                        setEditStatementType(profile?.defaultStatementType || "credit");
+                        setShowStatementTypeModal(true);
+                      }}
+                    >
                       Configure
                     </Button>
                   </div>
@@ -216,7 +254,11 @@ export function SettingsTab({ onNavigate }: SettingsTabProps) {
                       <p className="text-[15px] font-medium" style={{ fontWeight: 500 }}>Auto-tagging Rules</p>
                       <p className="text-[13px] text-muted-foreground">Configure automatic transaction tagging</p>
                     </div>
-                    <Button variant="outline" size="sm" onClick={() => onNavigate?.("rules")}>
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      onClick={() => setShowRulesManager(true)}
+                    >
                       Manage
                     </Button>
                   </div>
@@ -225,7 +267,11 @@ export function SettingsTab({ onNavigate }: SettingsTabProps) {
                       <p className="text-[15px] font-medium" style={{ fontWeight: 500 }}>Merchants</p>
                       <p className="text-[13px] text-muted-foreground">Manage merchant names and aliases</p>
                     </div>
-                    <Button variant="outline" size="sm" onClick={() => onNavigate?.("merchants")}>
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      onClick={() => setShowMerchantManager(true)}
+                    >
                       Manage
                     </Button>
                   </div>
@@ -254,7 +300,16 @@ export function SettingsTab({ onNavigate }: SettingsTabProps) {
                       <p className="text-[15px] font-medium" style={{ fontWeight: 500 }}>Budget Buckets</p>
                       <p className="text-[13px] text-muted-foreground">Organize your money into Needs, Wants, and Goals</p>
                     </div>
-                    <Button variant="outline" size="sm" onClick={() => onNavigate?.("buckets")}>
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      onClick={(e) => {
+                        e.preventDefault();
+                        if (onNavigate) {
+                          onNavigate("buckets");
+                        }
+                      }}
+                    >
                       Manage
                     </Button>
                   </div>
@@ -263,7 +318,16 @@ export function SettingsTab({ onNavigate }: SettingsTabProps) {
                       <p className="text-[15px] font-medium" style={{ fontWeight: 500 }}>Financial Goals</p>
                       <p className="text-[13px] text-muted-foreground">Set goals, track progress, and get feasibility calculations</p>
                     </div>
-                    <Button variant="outline" size="sm" onClick={() => onNavigate?.("goals")}>
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      onClick={(e) => {
+                        e.preventDefault();
+                        if (onNavigate) {
+                          onNavigate("goals");
+                        }
+                      }}
+                    >
                       Manage
                     </Button>
                   </div>
@@ -292,7 +356,14 @@ export function SettingsTab({ onNavigate }: SettingsTabProps) {
                       <p className="text-[15px] font-medium" style={{ fontWeight: 500 }}>Email Notifications</p>
                       <p className="text-[13px] text-muted-foreground">Receive updates via email</p>
                     </div>
-                    <Button variant="outline" size="sm">
+                    <Button 
+                      variant="outline" 
+                      size="sm"
+                      onClick={() => {
+                        // TODO: Open email notifications configuration modal
+                        alert("Email notifications configuration coming soon!");
+                      }}
+                    >
                       Configure
                     </Button>
                   </div>
@@ -321,7 +392,11 @@ export function SettingsTab({ onNavigate }: SettingsTabProps) {
                       <p className="text-[15px] font-medium" style={{ fontWeight: 500 }}>Backup & Restore</p>
                       <p className="text-[13px] text-muted-foreground">Export or restore your data</p>
                     </div>
-                    <Button variant="outline" size="sm">
+                    <Button 
+                      variant="outline" 
+                      size="sm"
+                      onClick={() => onNavigate?.("export")}
+                    >
                       Manage
                     </Button>
                   </div>
@@ -465,6 +540,197 @@ export function SettingsTab({ onNavigate }: SettingsTabProps) {
           {renderSectionContent()}
         </div>
       </main>
+
+      {/* Profile Edit Modal */}
+      {showProfileEdit && (
+        <>
+          <div
+            className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200"
+            onClick={() => setShowProfileEdit(false)}
+          />
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <Card className="w-full max-w-md animate-in slide-in-from-bottom-4 duration-300" style={{ borderRadius: "16px" }}>
+              <CardHeader style={{ padding: "20px 20px 16px" }}>
+                <CardTitle className="text-[20px]" style={{ fontWeight: 600 }}>
+                  Edit {editingField === "nickname" ? "Nickname" : "Currency"}
+                </CardTitle>
+                <CardDescription className="text-[14px]">
+                  Update your {editingField === "nickname" ? "nickname" : "currency"} preference
+                </CardDescription>
+              </CardHeader>
+              <CardContent style={{ padding: "0 20px 20px" }}>
+                <div className="space-y-4">
+                  {editingField === "nickname" ? (
+                    <div className="space-y-2">
+                      <Label htmlFor="nickname">Nickname</Label>
+                      <Input
+                        id="nickname"
+                        value={editNickname}
+                        onChange={(e) => setEditNickname(e.target.value)}
+                        placeholder="Enter your nickname"
+                      />
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      <Label htmlFor="currency">Currency</Label>
+                      <Select value={editCurrency} onValueChange={setEditCurrency}>
+                        <SelectTrigger id="currency">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="AED">AED (UAE Dirham)</SelectItem>
+                          <SelectItem value="USD">USD (US Dollar)</SelectItem>
+                          <SelectItem value="EUR">EUR (Euro)</SelectItem>
+                          <SelectItem value="GBP">GBP (British Pound)</SelectItem>
+                          <SelectItem value="SAR">SAR (Saudi Riyal)</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  )}
+                  <div className="flex gap-3 pt-4">
+                    <Button
+                      variant="outline"
+                      onClick={() => setShowProfileEdit(false)}
+                      className="flex-1"
+                    >
+                      Cancel
+                    </Button>
+                    <Button
+                      onClick={async () => {
+                        const now = new Date().toISOString();
+                        if (editingField === "nickname") {
+                          await setProfile({
+                            ...(profile || {}),
+                            nickname: editNickname.trim(),
+                            currency: profile?.currency || "AED",
+                            updatedAt: now,
+                            createdAt: profile?.createdAt || now,
+                            onboardingCompleted: profile?.onboardingCompleted ?? false,
+                          });
+                        } else {
+                          await setProfile({
+                            ...(profile || {}),
+                            currency: editCurrency,
+                            nickname: profile?.nickname || "",
+                            updatedAt: now,
+                            createdAt: profile?.createdAt || now,
+                            onboardingCompleted: profile?.onboardingCompleted ?? false,
+                          });
+                        }
+                        setShowProfileEdit(false);
+                        setEditingField(null);
+                      }}
+                      className="flex-1"
+                      disabled={editingField === "nickname" && !editNickname.trim()}
+                    >
+                      Save
+                    </Button>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </>
+      )}
+
+      {/* Rules Manager Modal */}
+      <RulesManager isOpen={showRulesManager} onClose={() => setShowRulesManager(false)} />
+
+      {/* Merchant Manager Modal */}
+      <MerchantManager isOpen={showMerchantManager} onClose={() => setShowMerchantManager(false)} />
+
+      {/* Default Statement Type Modal */}
+      {showStatementTypeModal && (
+        <>
+          <div
+            className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200"
+            onClick={() => setShowStatementTypeModal(false)}
+          />
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <Card className="w-full max-w-md animate-in slide-in-from-bottom-4 duration-300" style={{ borderRadius: "16px" }}>
+              <CardHeader style={{ padding: "20px 20px 16px" }}>
+                <CardTitle className="text-[20px]" style={{ fontWeight: 600 }}>
+                  Default Statement Type
+                </CardTitle>
+                <CardDescription className="text-[14px]">
+                  Choose your default statement type for imports
+                </CardDescription>
+              </CardHeader>
+              <CardContent style={{ padding: "0 20px 20px" }}>
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <button
+                      onClick={() => setEditStatementType("credit")}
+                      className={cn(
+                        "w-full p-4 rounded-lg border text-left transition-all",
+                        editStatementType === "credit"
+                          ? "border-primary bg-primary/10"
+                          : "border-border hover:bg-muted"
+                      )}
+                    >
+                      <div className="flex items-center gap-3">
+                        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
+                        </svg>
+                        <div>
+                          <p className="font-medium">Credit Card</p>
+                          <p className="text-xs text-muted-foreground">Most common for reimbursements</p>
+                        </div>
+                      </div>
+                    </button>
+                    <button
+                      onClick={() => setEditStatementType("debit")}
+                      className={cn(
+                        "w-full p-4 rounded-lg border text-left transition-all",
+                        editStatementType === "debit"
+                          ? "border-primary bg-primary/10"
+                          : "border-border hover:bg-muted"
+                      )}
+                    >
+                      <div className="flex items-center gap-3">
+                        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
+                        </svg>
+                        <div>
+                          <p className="font-medium">Debit / Current / Savings Account</p>
+                          <p className="text-xs text-muted-foreground">Bank account statements</p>
+                        </div>
+                      </div>
+                    </button>
+                  </div>
+                  <div className="flex gap-3 pt-4">
+                    <Button
+                      variant="outline"
+                      onClick={() => setShowStatementTypeModal(false)}
+                      className="flex-1"
+                    >
+                      Cancel
+                    </Button>
+                    <Button
+                      onClick={async () => {
+                        const now = new Date().toISOString();
+                        await setProfile({
+                          ...(profile || {}),
+                          defaultStatementType: editStatementType,
+                          currency: profile?.currency || "AED",
+                          nickname: profile?.nickname || "",
+                          updatedAt: now,
+                          createdAt: profile?.createdAt || now,
+                          onboardingCompleted: profile?.onboardingCompleted ?? false,
+                        });
+                        setShowStatementTypeModal(false);
+                      }}
+                      className="flex-1"
+                    >
+                      Save
+                    </Button>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </>
+      )}
 
       {/* Delete All Data Confirmation Modal */}
       {showDeleteConfirm && (

@@ -48,7 +48,12 @@ export function RegisterForm({ onSwitchToSignIn }: RegisterFormProps) {
       const data = await response.json();
 
       if (!response.ok) {
-        setError(data.error || "Registration failed");
+        // Show user-friendly error message
+        if (data.code === "EMAIL_EXISTS" || response.status === 409) {
+          setError(data.error || "This email is already linked to an account. Please try signing in instead.");
+        } else {
+          setError(data.error || "Registration failed. Please try again.");
+        }
         setIsLoading(false);
         return;
       }
@@ -101,8 +106,17 @@ export function RegisterForm({ onSwitchToSignIn }: RegisterFormProps) {
       <CardContent style={{ padding: "0 24px 24px" }}>
         <form onSubmit={handleSubmit} className="space-y-4">
           {error && (
-            <div className="p-3 rounded-lg bg-destructive/10 border border-destructive/20 text-destructive text-sm">
-              {error}
+            <div className="p-3 rounded-lg bg-destructive/10 border border-destructive/20 text-destructive text-sm space-y-2">
+              <p>{error}</p>
+              {error.includes("already linked to an account") && onSwitchToSignIn && (
+                <button
+                  type="button"
+                  onClick={onSwitchToSignIn}
+                  className="text-sm font-medium underline hover:no-underline"
+                >
+                  Sign in instead →
+                </button>
+              )}
             </div>
           )}
 

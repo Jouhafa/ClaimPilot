@@ -660,7 +660,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   };
 
   const updateBucketFn = async (id: string, updates: Partial<Bucket>) => {
-    const updated = buckets.map((b) => (b.id === id ? { ...b, ...updates } : b));
+    const updated = buckets.map((b) => (b.id === id ? { ...b, ...updates, updatedAt: new Date().toISOString() } : b));
     await storage.saveBuckets(updated);
     setBuckets(updated);
   };

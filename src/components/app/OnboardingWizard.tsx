@@ -10,7 +10,7 @@ import { useApp } from "@/lib/context";
 import type { UserProfile } from "@/lib/appState";
 import { v4 as uuidv4 } from "uuid";
 import { cn } from "@/lib/utils";
-import type { Bucket } from "@/lib/types";
+import type { Bucket, MerchantAlias } from "@/lib/types";
 
 const ONBOARDING_KEY = "claimpilot_onboarding_completed";
 
@@ -19,7 +19,7 @@ interface OnboardingWizardProps {
 }
 
 export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
-  const { profile, setProfile, buckets, addBucket } = useApp();
+  const { profile, setProfile, buckets, addBucket, aliases, addAlias } = useApp();
   const [step, setStep] = useState(1);
   const [isVisible, setIsVisible] = useState(false);
 
@@ -82,6 +82,25 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
         await addBucket(bucket);
       }
     }
+    
+    // Ensure default merchant aliases exist for new users
+    if (aliases.length === 0) {
+      const defaultAliases = [
+        { id: "careem", variants: ["CAREEM", "CAREEM HALA", "CAREEM UAE"], normalizedName: "Careem" },
+        { id: "uber", variants: ["UBER", "UBER BV", "UBER TRIP", "UBER EATS"], normalizedName: "Uber" },
+        { id: "amazon", variants: ["AMAZON", "AMAZON.AE", "AMZN", "AMAZON AWS"], normalizedName: "Amazon" },
+        { id: "netflix", variants: ["NETFLIX", "NETFLIX.COM"], normalizedName: "Netflix" },
+        { id: "spotify", variants: ["SPOTIFY", "SPOTIFY AB"], normalizedName: "Spotify" },
+        { id: "starbucks", variants: ["STARBUCKS", "STARBUCKS COFFEE"], normalizedName: "Starbucks" },
+        { id: "marriott", variants: ["MARRIOTT", "MARRIOTT HOTEL", "MARRIOTT BONVOY"], normalizedName: "Marriott" },
+        { id: "hilton", variants: ["HILTON", "HILTON HOTEL", "HILTON HONORS"], normalizedName: "Hilton" },
+      ];
+      
+      for (const alias of defaultAliases) {
+        await addAlias(alias);
+      }
+    }
+    
     setStep(3);
   };
 

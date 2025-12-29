@@ -308,6 +308,32 @@ export async function createUser(data: {
       .single();
 
     if (error) {
+      // Check if error is due to duplicate email (unique constraint violation)
+      // Supabase error codes: 23505 = unique_violation, PGRST116 = not found (but can also mean duplicate)
+      if (
+        error.code === "23505" ||
+        error.message?.includes("duplicate key") ||
+        error.message?.includes("unique constraint") ||
+        error.message?.includes("already exists")
+      ) {
+        throw new Error("User already exists");
+      }
+      // Check if RLS error might be due to existing user
+      if (
+        error.message?.includes("row-level security") ||
+        error.message?.includes("violates row-level security policy")
+      ) {
+        // Double-check if user exists (RLS might be blocking the insert)
+        const { data: checkExisting } = await supabase
+          .from("users")
+          .select("id")
+          .eq("email", data.email)
+          .maybeSingle();
+        
+        if (checkExisting) {
+          throw new Error("User already exists");
+        }
+      }
       throw new Error(`Failed to create user: ${error.message}`);
     }
 

@@ -1,8 +1,8 @@
 "use client";
 
-import { useState, useCallback, useMemo, useEffect, Suspense } from "react";
+import { useState, useCallback, useMemo, useEffect, useRef, Suspense } from "react";
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
+import { useSearchParams, useRouter, usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { AppProvider, useApp } from "@/lib/context";
 import { Badge } from "@/components/ui/badge";
@@ -61,7 +61,20 @@ interface NavGroup {
 }
 
 function AppContent() {
-  const [activeTab, setActiveTab] = useState<TabId>("hub");
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  
+  // Get initial tab from URL or default to hub
+  const getInitialTab = (): TabId => {
+    const tabFromUrl = searchParams.get("tab") as TabId | null;
+    if (tabFromUrl && ["hub", "review", "plan", "coach", "import", "transactions", "reimbursements", "recurring", "analytics", "goals", "buckets", "action-plan", "investments", "card-safety", "export", "learn", "create-wrap", "recaps", "settings", "roi-tracker", "reminders", "expense-coverage"].includes(tabFromUrl)) {
+      return tabFromUrl;
+    }
+    return "hub";
+  };
+
+  const [activeTab, setActiveTab] = useState<TabId>(getInitialTab());
   const [showMonthlyRecap, setShowMonthlyRecap] = useState(false);
   const [wrapSnapshot, setWrapSnapshot] = useState<WrapSnapshot | null>(null);
   const [wrapMonthKey, setWrapMonthKey] = useState<string | undefined>(undefined);
@@ -69,7 +82,51 @@ function AppContent() {
   const [showMobileNavModal, setShowMobileNavModal] = useState(false);
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const { transactions, goals, buckets, tier, hasAccess } = useApp();
-  const searchParams = useSearchParams();
+
+  // Track if we're updating from URL to prevent loops
+  const isUpdatingFromUrl = useRef(false);
+
+  // Sync URL when tab changes (only if not updating from URL)
+  useEffect(() => {
+    if (isUpdatingFromUrl.current) {
+      isUpdatingFromUrl.current = false;
+      return;
+    }
+
+    const currentTabFromUrl = searchParams.get("tab");
+    const expectedTab = activeTab === "hub" ? null : activeTab;
+    
+    // Only update URL if it's different
+    if (currentTabFromUrl !== expectedTab) {
+      const params = new URLSearchParams(searchParams.toString());
+      if (activeTab === "hub") {
+        params.delete("tab");
+      } else {
+        params.set("tab", activeTab);
+      }
+      const newUrl = params.toString() ? `${pathname}?${params.toString()}` : pathname;
+      const currentUrl = `${pathname}${searchParams.toString() ? `?${searchParams.toString()}` : ""}`;
+      
+      // Only replace if URL is actually different
+      if (newUrl !== currentUrl) {
+        router.replace(newUrl, { scroll: false });
+      }
+    }
+  }, [activeTab, pathname, router]);
+
+  // Update tab when URL changes (e.g., browser back/forward)
+  useEffect(() => {
+    const tabFromUrl = searchParams.get("tab") as TabId | null;
+    const validTabs: TabId[] = ["hub", "review", "plan", "coach", "import", "transactions", "reimbursements", "recurring", "analytics", "goals", "buckets", "action-plan", "investments", "card-safety", "export", "learn", "create-wrap", "recaps", "settings", "roi-tracker", "reminders", "expense-coverage"];
+    
+    if (tabFromUrl && validTabs.includes(tabFromUrl) && tabFromUrl !== activeTab) {
+      isUpdatingFromUrl.current = true;
+      setActiveTab(tabFromUrl);
+    } else if (!tabFromUrl && activeTab !== "hub") {
+      isUpdatingFromUrl.current = true;
+      setActiveTab("hub");
+    }
+  }, [searchParams, activeTab]);
 
   const dismissNotification = useCallback((id: string) => {
     setNotifications((prev) => prev.filter((n) => n.id !== id));
@@ -138,9 +195,11 @@ function AppContent() {
     t => t.tag === "reimbursable" && t.status === "draft"
   ).length;
 
-  // Navigation callback
+  // Navigation callback - updates both state and URL
   const handleNavigate = useCallback((tab: string) => {
-    setActiveTab(tab as TabId);
+    const tabId = tab as TabId;
+    setActiveTab(tabId);
+    // URL update is handled by the useEffect above
   }, []);
 
   // Check if nav item is unlocked
