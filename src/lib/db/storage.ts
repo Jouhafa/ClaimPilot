@@ -626,12 +626,13 @@ export async function loadProfile(userId: string): Promise<UserProfile | null> {
 
   if (!data) return null;
 
+  const row = data as any;
   return {
-    nickname: data.nickname || undefined,
-    currency: data.currency,
+    nickname: row.nickname || undefined,
+    currency: row.currency,
     onboardingCompleted: false, // Default
-    createdAt: data.updated_at || new Date().toISOString(),
-    updatedAt: data.updated_at || new Date().toISOString(),
+    createdAt: row.updated_at || new Date().toISOString(),
+    updatedAt: row.updated_at || new Date().toISOString(),
   };
 }
 
@@ -672,13 +673,14 @@ export async function loadCardSafety(userId: string): Promise<CardSafetyData | n
 
   if (!data) return null;
 
+  const row = data as any;
   return {
-    statementBalance: data.statement_balance,
-    dueDate: data.due_date,
-    paymentsMade: data.payments_made,
-    minimumDue: data.minimum_due,
-    statementDate: data.statement_date,
-    safetyBuffer: data.safety_buffer,
+    statementBalance: row.statement_balance,
+    dueDate: row.due_date,
+    paymentsMade: row.payments_made,
+    minimumDue: row.minimum_due,
+    statementDate: row.statement_date,
+    safetyBuffer: row.safety_buffer,
   };
 }
 
@@ -876,16 +878,17 @@ export async function getMonthlyWrap(userId: string, monthKey: string): Promise<
 
   if (!data) return null;
 
+  const row = data as any;
   return {
-    id: data.id,
-    monthKey: data.month_key,
-    wrapData: data.wrap_data as WrapSnapshot["wrapData"],
-    createdAt: data.created_at,
-    watchedAt: data.watched_at,
-    version: data.version,
+    id: row.id,
+    monthKey: row.month_key,
+    wrapData: row.wrap_data as WrapSnapshot["wrapData"],
+    createdAt: row.created_at,
+    watchedAt: row.watched_at,
+    version: row.version,
     type: "monthly" as const,
     period: (() => {
-      const [year, month] = data.month_key.split("-");
+      const [year, month] = row.month_key.split("-");
       const start = new Date(parseInt(year), parseInt(month) - 1, 1);
       const end = new Date(parseInt(year), parseInt(month), 0);
       return {
@@ -893,7 +896,7 @@ export async function getMonthlyWrap(userId: string, monthKey: string): Promise<
         end: end.toISOString(),
       };
     })(),
-    title: `Monthly Wrap - ${data.month_key}`, // Generate title from monthKey
+    title: `Monthly Wrap - ${row.month_key}`, // Generate title from monthKey
   };
 }
 
