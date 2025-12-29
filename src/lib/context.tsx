@@ -1,6 +1,7 @@
 "use client";
 
-import React, { createContext, useContext, useState, useEffect, useCallback } from "react";
+import React, { createContext, useContext, useState, useEffect, useCallback, useMemo, useRef } from "react";
+import { useSession } from "next-auth/react";
 import { v4 as uuidv4 } from "uuid";
 import type { 
   Transaction, Rule, ClaimBatch, MerchantAlias, CardSafetyData,
@@ -8,49 +9,9 @@ import type {
   License, LicenseTier, Account, Budget
 } from "./types";
 import { hasFeatureAccess } from "./types";
-import {
-  loadTransactions,
-  saveTransactions,
-  addTransactions as addTransactionsToStorage,
-  updateTransaction as updateTransactionInStorage,
-  deleteTransaction as deleteTransactionFromStorage,
-  clearAllTransactions,
-  loadRules,
-  saveRules,
-  loadBatches,
-  saveBatches,
-  loadAliases,
-  saveAliases,
-  loadGoals,
-  saveGoals,
-  loadBuckets,
-  saveBuckets,
-  loadCategoryRules,
-  saveCategoryRules,
-  loadRecurring,
-  saveRecurring,
-  loadIncomeConfig,
-  saveIncomeConfig,
-  loadCardSafety,
-  saveCardSafety,
-  loadLicense,
-  saveLicense,
-  clearLicense,
-  loadProfile,
-  saveProfile,
-  loadAccounts,
-  saveAccounts,
-  addAccount as addAccountToStorage,
-  updateAccount as updateAccountInStorage,
-  deleteAccount as deleteAccountFromStorage,
-  loadBudgets,
-  saveBudgets,
-  addBudget as addBudgetToStorage,
-  updateBudget as updateBudgetInStorage,
-  deleteBudget as deleteBudgetFromStorage,
-  deleteAllData,
-} from "./storage";
+import { getStorageAdapter } from "./storage-adapter";
 import type { UserProfile } from "./appState";
+import { useRealtime } from "./hooks/useRealtime";
 
 interface AppContextType {
   // Data
@@ -152,6 +113,9 @@ interface AppContextType {
 const AppContext = createContext<AppContextType | null>(null);
 
 export function AppProvider({ children }: { children: React.ReactNode }) {
+  const { data: session, status: sessionStatus } = useSession();
+  const userId = session?.user?.id || null;
+  
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [rules, setRules] = useState<Rule[]>([]);
   const [batches, setBatches] = useState<ClaimBatch[]>([]);
@@ -169,13 +133,25 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [budgets, setBudgets] = useState<Budget[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   
-  // Computed tier
-  const tier: LicenseTier = license?.tier || "free";
+  // Get storage adapter based on user session
+  const storage = useMemo(() => getStorageAdapter(userId), [userId]);
   
-  // Check feature access
+  // Track if we're currently applying a real-time update to avoid loops
+  const isApplyingRealtimeUpdate = useRef(false);
+  
+  // Computed tier - in dev mode, all authenticated users get "paid" tier
+  // This makes all features accessible without license verification
+  const tier: LicenseTier = session?.user ? "paid" : (license?.tier || "free");
+  
+  // Check feature access - in dev mode, all authenticated users have access
   const hasAccess = useCallback((feature: string) => {
+    // If user is authenticated, grant access to all features
+    if (session?.user) {
+      return true;
+    }
+    // Fallback to tier-based access (for unauthenticated users)
     return hasFeatureAccess(tier, feature);
-  }, [tier]);
+  }, [tier, session]);
 
   const refreshData = useCallback(async () => {
     setIsLoading(true);
@@ -196,20 +172,20 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         loadedAccounts,
         loadedBudgets,
       ] = await Promise.all([
-        loadTransactions(),
-        loadRules(),
-        loadBatches(),
-        loadAliases(),
-        loadGoals(),
-        loadBuckets(),
-        loadCategoryRules(),
-        loadRecurring(),
-        loadIncomeConfig(),
-        loadCardSafety(),
-        loadLicense(),
-        loadProfile(),
-        loadAccounts(),
-        loadBudgets(),
+        storage.loadTransactions(),
+        storage.loadRules(),
+        storage.loadBatches(),
+        storage.loadAliases(),
+        storage.loadGoals(),
+        storage.loadBuckets(),
+        storage.loadCategoryRules(),
+        storage.loadRecurring(),
+        storage.loadIncomeConfig(),
+        storage.loadCardSafety(),
+        storage.loadLicense(),
+        storage.loadProfile(),
+        storage.loadAccounts(),
+        storage.loadBudgets(),
       ]);
       setTransactions(loadedTransactions);
       setRules(loadedRules);
@@ -238,44 +214,264 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     } finally {
       setIsLoading(false);
     }
-  }, [selectedAccountId]);
+  }, [selectedAccountId, storage, sessionStatus]);
 
   useEffect(() => {
     refreshData();
   }, [refreshData]);
 
+  // Real-time subscriptions for data sync
+  // Only subscribe when user is authenticated and Supabase is configured
+  const isRealtimeEnabled = useMemo(() => {
+    return !!(
+      userId &&
+      process.env.NEXT_PUBLIC_SUPABASE_URL &&
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+    );
+  }, [userId]);
+
+  // Transactions real-time sync
+  useRealtime({
+    table: "transactions",
+    userId,
+    enabled: isRealtimeEnabled,
+    onInsert: (payload) => {
+      if (isApplyingRealtimeUpdate.current) return;
+      const newTx = payload.new as Transaction;
+      setTransactions((prev) => {
+        // Check if transaction already exists (avoid duplicates)
+        if (prev.some((t) => t.id === newTx.id)) return prev;
+        return [...prev, newTx].sort((a, b) => 
+          new Date(b.date).getTime() - new Date(a.date).getTime()
+        );
+      });
+    },
+    onUpdate: (payload) => {
+      if (isApplyingRealtimeUpdate.current) return;
+      const updatedTx = payload.new as Transaction;
+      setTransactions((prev) =>
+        prev.map((tx) => (tx.id === updatedTx.id ? updatedTx : tx))
+      );
+    },
+    onDelete: (payload) => {
+      if (isApplyingRealtimeUpdate.current) return;
+      const deletedId = payload.old.id;
+      setTransactions((prev) => prev.filter((tx) => tx.id !== deletedId));
+    },
+  });
+
+  // Rules real-time sync
+  useRealtime({
+    table: "rules",
+    userId,
+    enabled: isRealtimeEnabled,
+    onInsert: (payload) => {
+      if (isApplyingRealtimeUpdate.current) return;
+      const newRule = payload.new as Rule;
+      setRules((prev) => {
+        if (prev.some((r) => r.id === newRule.id)) return prev;
+        return [...prev, newRule];
+      });
+    },
+    onUpdate: (payload) => {
+      if (isApplyingRealtimeUpdate.current) return;
+      const updatedRule = payload.new as Rule;
+      setRules((prev) =>
+        prev.map((r) => (r.id === updatedRule.id ? updatedRule : r))
+      );
+    },
+    onDelete: (payload) => {
+      if (isApplyingRealtimeUpdate.current) return;
+      const deletedId = payload.old.id;
+      setRules((prev) => prev.filter((r) => r.id !== deletedId));
+    },
+  });
+
+  // Goals real-time sync
+  useRealtime({
+    table: "goals",
+    userId,
+    enabled: isRealtimeEnabled,
+    onInsert: (payload) => {
+      if (isApplyingRealtimeUpdate.current) return;
+      const newGoal = payload.new as Goal;
+      setGoals((prev) => {
+        if (prev.some((g) => g.id === newGoal.id)) return prev;
+        return [...prev, newGoal];
+      });
+    },
+    onUpdate: (payload) => {
+      if (isApplyingRealtimeUpdate.current) return;
+      const updatedGoal = payload.new as Goal;
+      setGoals((prev) =>
+        prev.map((g) => (g.id === updatedGoal.id ? updatedGoal : g))
+      );
+    },
+    onDelete: (payload) => {
+      if (isApplyingRealtimeUpdate.current) return;
+      const deletedId = payload.old.id;
+      setGoals((prev) => prev.filter((g) => g.id !== deletedId));
+    },
+  });
+
+  // Buckets real-time sync
+  useRealtime({
+    table: "buckets",
+    userId,
+    enabled: isRealtimeEnabled,
+    onInsert: (payload) => {
+      if (isApplyingRealtimeUpdate.current) return;
+      const newBucket = payload.new as Bucket;
+      setBuckets((prev) => {
+        if (prev.some((b) => b.id === newBucket.id)) return prev;
+        return [...prev, newBucket];
+      });
+    },
+    onUpdate: (payload) => {
+      if (isApplyingRealtimeUpdate.current) return;
+      const updatedBucket = payload.new as Bucket;
+      setBuckets((prev) =>
+        prev.map((b) => (b.id === updatedBucket.id ? updatedBucket : b))
+      );
+    },
+    onDelete: (payload) => {
+      if (isApplyingRealtimeUpdate.current) return;
+      const deletedId = payload.old.id;
+      setBuckets((prev) => prev.filter((b) => b.id !== deletedId));
+    },
+  });
+
+  // Batches real-time sync
+  useRealtime({
+    table: "claim_batches",
+    userId,
+    enabled: isRealtimeEnabled,
+    onInsert: (payload) => {
+      if (isApplyingRealtimeUpdate.current) return;
+      const newBatch = payload.new as ClaimBatch;
+      setBatches((prev) => {
+        if (prev.some((b) => b.id === newBatch.id)) return prev;
+        return [...prev, newBatch];
+      });
+    },
+    onUpdate: (payload) => {
+      if (isApplyingRealtimeUpdate.current) return;
+      const updatedBatch = payload.new as ClaimBatch;
+      setBatches((prev) =>
+        prev.map((b) => (b.id === updatedBatch.id ? updatedBatch : b))
+      );
+    },
+    onDelete: (payload) => {
+      if (isApplyingRealtimeUpdate.current) return;
+      const deletedId = payload.old.id;
+      setBatches((prev) => prev.filter((b) => b.id !== deletedId));
+    },
+  });
+
+  // Accounts real-time sync
+  useRealtime({
+    table: "accounts",
+    userId,
+    enabled: isRealtimeEnabled,
+    onInsert: (payload) => {
+      if (isApplyingRealtimeUpdate.current) return;
+      const newAccount = payload.new as Account;
+      setAccounts((prev) => {
+        if (prev.some((a) => a.id === newAccount.id)) return prev;
+        return [...prev, newAccount];
+      });
+    },
+    onUpdate: (payload) => {
+      if (isApplyingRealtimeUpdate.current) return;
+      const updatedAccount = payload.new as Account;
+      setAccounts((prev) =>
+        prev.map((a) => (a.id === updatedAccount.id ? updatedAccount : a))
+      );
+    },
+    onDelete: (payload) => {
+      if (isApplyingRealtimeUpdate.current) return;
+      const deletedId = payload.old.id;
+      setAccounts((prev) => prev.filter((a) => a.id !== deletedId));
+    },
+  });
+
+  // Budgets real-time sync
+  useRealtime({
+    table: "budgets",
+    userId,
+    enabled: isRealtimeEnabled,
+    onInsert: (payload) => {
+      if (isApplyingRealtimeUpdate.current) return;
+      const newBudget = payload.new as Budget;
+      setBudgets((prev) => {
+        if (prev.some((b) => b.id === newBudget.id)) return prev;
+        return [...prev, newBudget];
+      });
+    },
+    onUpdate: (payload) => {
+      if (isApplyingRealtimeUpdate.current) return;
+      const updatedBudget = payload.new as Budget;
+      setBudgets((prev) =>
+        prev.map((b) => (b.id === updatedBudget.id ? updatedBudget : b))
+      );
+    },
+    onDelete: (payload) => {
+      if (isApplyingRealtimeUpdate.current) return;
+      const deletedId = payload.old.id;
+      setBudgets((prev) => prev.filter((b) => b.id !== deletedId));
+    },
+  });
+
   // Transaction functions
   const addTransactions = async (newTransactions: Transaction[]) => {
-    const merged = await addTransactionsToStorage(newTransactions);
-    setTransactions(merged);
+    try {
+      isApplyingRealtimeUpdate.current = true; // Prevent real-time loop
+      const merged = await storage.addTransactions(newTransactions);
+      setTransactions(merged);
+    } catch (error) {
+      console.error("Error in addTransactions:", error);
+      throw error;
+    } finally {
+      isApplyingRealtimeUpdate.current = false;
+    }
   };
 
   const updateTransaction = async (id: string, updates: Partial<Transaction>) => {
-    const updated = await updateTransactionInStorage(id, updates);
-    setTransactions(updated);
+    isApplyingRealtimeUpdate.current = true;
+    try {
+      const updated = await storage.updateTransaction(id, updates);
+      setTransactions(updated);
+    } finally {
+      isApplyingRealtimeUpdate.current = false;
+    }
   };
 
   const updateTransactions = async (ids: string[], updates: Partial<Transaction>) => {
-    const allTransactions = await loadTransactions();
+    const allTransactions = await storage.loadTransactions();
     const updated = allTransactions.map((tx) =>
       ids.includes(tx.id) ? { ...tx, ...updates } : tx
     );
-    await saveTransactions(updated);
+    await storage.saveTransactions(updated);
     setTransactions(updated);
   };
 
   const deleteTransaction = async (id: string) => {
-    const updated = await deleteTransactionFromStorage(id);
-    setTransactions(updated);
+    isApplyingRealtimeUpdate.current = true;
+    try {
+      const updated = await storage.deleteTransaction(id);
+      setTransactions(updated);
+    } finally {
+      isApplyingRealtimeUpdate.current = false;
+    }
   };
 
   const deleteAllTransactions = async () => {
-    await clearAllTransactions();
+    await storage.clearAllTransactions();
     setTransactions([]);
   };
 
   const deleteAllDataHandler = async () => {
-    await deleteAllData();
+    await storage.deleteAllData();
     // Clear all state
     setTransactions([]);
     setRules([]);
@@ -322,44 +518,44 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       createdAt: new Date().toISOString(),
     }));
 
-    const allTransactions = await loadTransactions();
+    const allTransactions = await storage.loadTransactions();
     const updated = allTransactions.map((t) =>
       t.id === id ? updatedOriginal : t
     );
     const withSplits = [...updated, ...splitTransactions];
-    await saveTransactions(withSplits);
+    await storage.saveTransactions(withSplits);
     setTransactions(withSplits);
   };
 
   // Rule functions
   const addRule = async (rule: Rule) => {
     const newRules = [...rules, rule];
-    await saveRules(newRules);
+    await storage.saveRules(newRules);
     setRules(newRules);
   };
 
   const updateRule = async (id: string, updates: Partial<Rule>) => {
     const updated = rules.map((r) => (r.id === id ? { ...r, ...updates } : r));
-    await saveRules(updated);
+    await storage.saveRules(updated);
     setRules(updated);
   };
 
   const deleteRule = async (id: string) => {
     const filtered = rules.filter((r) => r.id !== id);
-    await saveRules(filtered);
+    await storage.saveRules(filtered);
     setRules(filtered);
   };
 
   // Batch functions
   const addBatch = async (batch: ClaimBatch) => {
     const newBatches = [...batches, batch];
-    await saveBatches(newBatches);
+    await storage.saveBatches(newBatches);
     setBatches(newBatches);
   };
 
   const updateBatch = async (id: string, updates: Partial<ClaimBatch>) => {
     const updated = batches.map((b) => (b.id === id ? { ...b, ...updates } : b));
-    await saveBatches(updated);
+    await storage.saveBatches(updated);
     setBatches(updated);
   };
 
@@ -367,11 +563,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     const updatedTransactions = transactions.map((tx) =>
       tx.batchId === id ? { ...tx, batchId: undefined } : tx
     );
-    await saveTransactions(updatedTransactions);
+    await storage.saveTransactions(updatedTransactions);
     setTransactions(updatedTransactions);
 
     const filtered = batches.filter((b) => b.id !== id);
-    await saveBatches(filtered);
+    await storage.saveBatches(filtered);
     setBatches(filtered);
   };
 
@@ -379,7 +575,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     const updated = transactions.map((tx) =>
       transactionIds.includes(tx.id) ? { ...tx, batchId } : tx
     );
-    await saveTransactions(updated);
+    await storage.saveTransactions(updated);
     setTransactions(updated);
   };
 
@@ -387,26 +583,26 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     const updated = transactions.map((tx) =>
       transactionIds.includes(tx.id) ? { ...tx, batchId: undefined } : tx
     );
-    await saveTransactions(updated);
+    await storage.saveTransactions(updated);
     setTransactions(updated);
   };
 
   // Alias functions
   const addAlias = async (alias: MerchantAlias) => {
     const newAliases = [...aliases, alias];
-    await saveAliases(newAliases);
+    await storage.saveAliases(newAliases);
     setAliases(newAliases);
   };
 
   const updateAlias = async (id: string, updates: Partial<MerchantAlias>) => {
     const updated = aliases.map((a) => (a.id === id ? { ...a, ...updates } : a));
-    await saveAliases(updated);
+    await storage.saveAliases(updated);
     setAliases(updated);
   };
 
   const deleteAlias = async (id: string) => {
     const filtered = aliases.filter((a) => a.id !== id);
-    await saveAliases(filtered);
+    await storage.saveAliases(filtered);
     setAliases(filtered);
   };
 
@@ -430,7 +626,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     });
 
     if (count > 0) {
-      await saveTransactions(updated);
+      await storage.saveTransactions(updated);
       setTransactions(updated);
     }
 
@@ -440,105 +636,107 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   // Goal functions
   const addGoal = async (goal: Goal) => {
     const newGoals = [...goals, goal];
-    await saveGoals(newGoals);
+    await storage.saveGoals(newGoals);
     setGoals(newGoals);
   };
 
   const updateGoal = async (id: string, updates: Partial<Goal>) => {
     const updated = goals.map((g) => (g.id === id ? { ...g, ...updates, updatedAt: new Date().toISOString() } : g));
-    await saveGoals(updated);
+    await storage.saveGoals(updated);
     setGoals(updated);
   };
 
   const deleteGoal = async (id: string) => {
     const filtered = goals.filter((g) => g.id !== id);
-    await saveGoals(filtered);
+    await storage.saveGoals(filtered);
     setGoals(filtered);
   };
 
   // Bucket functions
   const addBucket = async (bucket: Bucket) => {
     const newBuckets = [...buckets, bucket];
-    await saveBuckets(newBuckets);
+    await storage.saveBuckets(newBuckets);
     setBuckets(newBuckets);
   };
 
   const updateBucketFn = async (id: string, updates: Partial<Bucket>) => {
     const updated = buckets.map((b) => (b.id === id ? { ...b, ...updates } : b));
-    await saveBuckets(updated);
+    await storage.saveBuckets(updated);
     setBuckets(updated);
   };
 
   const deleteBucketFn = async (id: string) => {
     const filtered = buckets.filter((b) => b.id !== id);
-    await saveBuckets(filtered);
+    await storage.saveBuckets(filtered);
     setBuckets(filtered);
   };
 
   // Category rule functions
   const addCategoryRule = async (rule: CategoryRule) => {
     const newRules = [...categoryRules, rule];
-    await saveCategoryRules(newRules);
+    await storage.saveCategoryRules(newRules);
     setCategoryRules(newRules);
   };
 
   const updateCategoryRule = async (id: string, updates: Partial<CategoryRule>) => {
     const updated = categoryRules.map((r) => (r.id === id ? { ...r, ...updates } : r));
-    await saveCategoryRules(updated);
+    await storage.saveCategoryRules(updated);
     setCategoryRules(updated);
   };
 
   const deleteCategoryRule = async (id: string) => {
     const filtered = categoryRules.filter((r) => r.id !== id);
-    await saveCategoryRules(filtered);
+    await storage.saveCategoryRules(filtered);
     setCategoryRules(filtered);
   };
 
   // Recurring functions
   const addRecurring = async (item: RecurringTransaction) => {
     const newRecurring = [...recurring, item];
-    await saveRecurring(newRecurring);
+    await storage.saveRecurring(newRecurring);
     setRecurringState(newRecurring);
   };
 
   const updateRecurring = async (id: string, updates: Partial<RecurringTransaction>) => {
     const updated = recurring.map((r) => (r.id === id ? { ...r, ...updates } : r));
-    await saveRecurring(updated);
+    await storage.saveRecurring(updated);
     setRecurringState(updated);
   };
 
   const deleteRecurring = async (id: string) => {
     const filtered = recurring.filter((r) => r.id !== id);
-    await saveRecurring(filtered);
+    await storage.saveRecurring(filtered);
     setRecurringState(filtered);
   };
 
   const setRecurring = async (items: RecurringTransaction[]) => {
-    await saveRecurring(items);
+    await storage.saveRecurring(items);
     setRecurringState(items);
   };
 
   // Income config
   const setIncomeConfig = async (config: IncomeConfig) => {
-    await saveIncomeConfig(config);
+    await storage.saveIncomeConfig(config);
     setIncomeConfigState(config);
   };
 
   // Card safety
   const setCardSafety = async (data: CardSafetyData) => {
-    await saveCardSafety(data);
+    await storage.saveCardSafety(data);
     setCardSafetyState(data);
   };
 
   // Profile functions
   const setProfile = async (newProfile: UserProfile) => {
-    await saveProfile(newProfile);
+    await storage.saveProfile(newProfile);
     setProfileState(newProfile);
   };
 
   // Account functions
   const addAccount = async (account: Account) => {
-    const newAccounts = await addAccountToStorage(account);
+    const allAccounts = await storage.loadAccounts();
+    const newAccounts = [...allAccounts, account];
+    await storage.saveAccounts(newAccounts);
     setAccounts(newAccounts);
     // Auto-select if it's the first account
     if (newAccounts.length === 1) {
@@ -547,12 +745,18 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   };
 
   const updateAccount = async (id: string, updates: Partial<Account>) => {
-    const updated = await updateAccountInStorage(id, updates);
+    const allAccounts = await storage.loadAccounts();
+    const updated = allAccounts.map((acc) =>
+      acc.id === id ? { ...acc, ...updates } : acc
+    );
+    await storage.saveAccounts(updated);
     setAccounts(updated);
   };
 
   const deleteAccount = async (id: string) => {
-    const updated = await deleteAccountFromStorage(id);
+    const allAccounts = await storage.loadAccounts();
+    const updated = allAccounts.filter((acc) => acc.id !== id);
+    await storage.saveAccounts(updated);
     setAccounts(updated);
     // Clear selection if deleted account was selected
     if (selectedAccountId === id) {
@@ -567,26 +771,34 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   // Budget functions
   const addBudget = async (budget: Budget) => {
-    const newBudgets = await addBudgetToStorage(budget);
+    const allBudgets = await storage.loadBudgets();
+    const newBudgets = [...allBudgets, budget];
+    await storage.saveBudgets(newBudgets);
     setBudgets(newBudgets);
   };
 
   const updateBudget = async (id: string, updates: Partial<Budget>) => {
-    const updated = await updateBudgetInStorage(id, updates);
+    const allBudgets = await storage.loadBudgets();
+    const updated = allBudgets.map((budget) =>
+      budget.id === id ? { ...budget, ...updates } : budget
+    );
+    await storage.saveBudgets(updated);
     setBudgets(updated);
   };
 
   const deleteBudget = async (id: string) => {
-    const updated = await deleteBudgetFromStorage(id);
+    const allBudgets = await storage.loadBudgets();
+    const updated = allBudgets.filter((budget) => budget.id !== id);
+    await storage.saveBudgets(updated);
     setBudgets(updated);
   };
 
   // License functions
   const setLicense = async (newLicense: License | null) => {
     if (newLicense) {
-      await saveLicense(newLicense.key, newLicense.tier, newLicense.email);
+      await storage.saveLicense(newLicense.key, newLicense.tier, newLicense.email);
     } else {
-      await clearLicense();
+      await storage.clearLicense();
     }
     setLicenseState(newLicense);
   };
@@ -618,7 +830,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   };
 
   const removeLicense = async () => {
-    await clearLicense();
+    await storage.clearLicense();
     setLicenseState(null);
   };
 

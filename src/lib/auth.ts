@@ -133,77 +133,122 @@ export const authOptions: NextAuthConfig = {
   },
   callbacks: {
     async signIn({ user, account, profile }) {
-      // Handle OAuth sign-ins
-      if (account?.provider === "google" || account?.provider === "apple") {
-        // Use admin client to bypass RLS
-        try {
-          const adminClient = getAdminClient();
-          
-          // Check if user exists
-          const { data: existingUser } = await (adminClient.from("users") as any)
-            .select("*")
-            .eq("email", user.email)
-            .maybeSingle();
+      // Ensure user exists in Supabase for all sign-in methods
+      try {
+        const adminClient = getAdminClient();
+        const userId = user.id || crypto.randomUUID();
+        
+        // Check if user exists by ID first
+        const { data: existingUserById } = await (adminClient.from("users") as any)
+          .select("*")
+          .eq("id", userId)
+          .maybeSingle();
+        
+        // Also check by email (in case ID doesn't match)
+        const { data: existingUserByEmail } = user.email ? await (adminClient.from("users") as any)
+          .select("*")
+          .eq("email", user.email)
+          .maybeSingle() : { data: null };
 
-          if (!existingUser) {
-            // Create new user
-            const { error } = await (adminClient.from("users") as any).insert({
-              id: user.id || crypto.randomUUID(),
-              email: user.email!,
-              name: user.name || undefined,
-              image: user.image || undefined,
-              provider: account.provider,
-              email_verified: new Date().toISOString(),
-              created_at: new Date().toISOString(),
-              updated_at: new Date().toISOString(),
-            });
+        const existingUser = existingUserById || existingUserByEmail;
 
-            if (error) {
-              console.error("Error creating OAuth user:", error);
+        if (!existingUser) {
+          // Create new user
+          const { error } = await (adminClient.from("users") as any).insert({
+            id: userId,
+            email: user.email || `${userId}@temp.local`,
+            name: user.name || undefined,
+            image: user.image || undefined,
+            provider: account?.provider || "credentials",
+            email_verified: account?.provider === "google" || account?.provider === "apple" 
+              ? new Date().toISOString() 
+              : undefined,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+          });
+
+          if (error) {
+            console.error("Error creating user in Supabase during sign-in:", error);
+            // If this is an RLS error, it means we're not using the service role key
+            if (error.message?.includes("row-level security") || error.code === "42501") {
+              console.error(
+                "CRITICAL: User creation failed due to RLS. " +
+                "This means getAdminClient() is not using the service role key. " +
+                "Check that SUPABASE_SERVICE_ROLE_KEY is set and getAdminClient() is running server-side."
+              );
             }
+            // Don't block sign-in, but log the error
+            // The user will need to be created manually or via API route
           } else {
-            // Update user if needed (e.g., update image or name)
-            const updates: any = {
-              updated_at: new Date().toISOString(),
-            };
-            if (user.name && !existingUser.name) updates.name = user.name;
-            if (user.image && !existingUser.image) updates.image = user.image;
-            if (!existingUser.provider) updates.provider = account.provider;
-            
-            if (Object.keys(updates).length > 1) {
-              await (adminClient.from("users") as any)
-                .update(updates)
-                .eq("id", existingUser.id);
-            }
+            console.log(`✅ Created user ${userId} in Supabase during sign-in`);
           }
-        } catch (error) {
-          console.error("Error in OAuth sign-in:", error);
-          // Fallback to in-memory store if Supabase fails
-          const existingUser = Array.from(users.values()).find(
-            (u) => u.email === user.email
-          );
-
-          if (!existingUser) {
-            const newUser: UserRecord = {
-              id: user.id || crypto.randomUUID(),
-              email: user.email!,
-              name: user.name || undefined,
-              image: user.image || undefined,
-              provider: account.provider,
-              email_verified: new Date(),
-              created_at: new Date(),
-              updated_at: new Date(),
-            };
-            users.set(newUser.id, newUser);
+        } else {
+          // User exists - use their existing ID
+          // This is critical: if user exists by email with different ID, we need to use the existing ID
+          // so that all their data (transactions, etc.) is accessible
+          if (existingUserByEmail && existingUserByEmail.id !== userId) {
+            console.log(
+              `User exists with different ID. Session ID: ${userId}, DB ID: ${existingUserByEmail.id}. ` +
+              `Using DB ID to access existing data.`
+            );
+            // Store the correct ID to be used in JWT callback
+            // We'll handle this in the JWT callback by looking up the user
+          }
+          
+          // Update user if needed (e.g., update image, name, or ensure ID matches)
+          const updates: any = {
+            updated_at: new Date().toISOString(),
+          };
+          
+          if (user.name && !existingUser.name) updates.name = user.name;
+          if (user.image && !existingUser.image) updates.image = user.image;
+          if (account?.provider && !existingUser.provider) updates.provider = account.provider;
+          
+          if (Object.keys(updates).length > 1) {
+            await (adminClient.from("users") as any)
+              .update(updates)
+              .eq("id", existingUser.id);
           }
         }
+      } catch (error) {
+        console.error("Error ensuring user exists in Supabase:", error);
+        // Don't block sign-in, but log the error
       }
+      
       return true;
     },
     async jwt({ token, user, account }) {
-      // Initial sign in
+      // Initial sign in - look up user in database to get correct ID
       if (user) {
-        token.id = user.id;
+        try {
+          const adminClient = getAdminClient();
+          if (user.email) {
+            // Always look up user by email to get the correct ID from database
+            // This ensures we use the same ID as the data in the database
+            const { data: existingUser } = await (adminClient.from("users") as any)
+              .select("id")
+              .eq("email", user.email)
+              .maybeSingle();
+            
+            if (existingUser) {
+              // Use the existing user's ID from database
+              // This is critical: if user signed in before, their data is stored with this ID
+              token.id = existingUser.id;
+              console.log(`✅ Using existing user ID from database: ${existingUser.id} for email: ${user.email}`);
+            } else {
+              // New user, use the ID from NextAuth
+              token.id = user.id;
+              console.log(`✅ New user, using NextAuth ID: ${user.id} for email: ${user.email}`);
+            }
+          } else {
+            // No email, use NextAuth ID
+            token.id = user.id;
+          }
+        } catch (error) {
+          console.error("Error looking up user in JWT callback:", error);
+          // Fallback to NextAuth user ID
+          token.id = user.id;
+        }
         token.email = user.email;
       }
       return token;

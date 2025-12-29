@@ -395,6 +395,7 @@ export function GoalsTab({ onNavigate }: GoalsTabProps = {}) {
                       type="date"
                       value={newGoal.targetDate}
                       onChange={(e) => setNewGoal({ ...newGoal, targetDate: e.target.value })}
+                      className="[&::-webkit-calendar-picker-indicator]:cursor-pointer [&::-webkit-calendar-picker-indicator]:opacity-60 hover:[&::-webkit-calendar-picker-indicator]:opacity-100 [&::-webkit-calendar-picker-indicator]:w-5 [&::-webkit-calendar-picker-indicator]:h-5 [&::-webkit-calendar-picker-indicator]:ml-2"
                     />
                   </div>
 

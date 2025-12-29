@@ -11,6 +11,7 @@ import { SplitTransactionModal } from "./SplitTransactionModal";
 import { DuplicateDetector } from "./DuplicateDetector";
 import { MerchantManager } from "./MerchantManager";
 import { ManualTransactionTab } from "./ManualTransactionTab";
+import { PaginationControls } from "@/components/ui/pagination";
 import { v4 as uuidv4 } from "uuid";
 import { findDuplicates, calculateCurrencyTotals } from "@/lib/types";
 import type { Transaction, TransactionTag } from "@/lib/types";
@@ -32,8 +33,26 @@ export function TransactionsTab() {
   const [editingTransaction, setEditingTransaction] = useState<string | null>(null);
   const [editValues, setEditValues] = useState<{date?: string; amount?: string; description?: string}>({});
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(15);
   const tableRef = useRef<HTMLDivElement>(null);
   const searchRef = useRef<HTMLInputElement>(null);
+
+  // Responsive items per page: mobile (6), tablet (10), desktop (15)
+  useEffect(() => {
+    const updateItemsPerPage = () => {
+      if (window.innerWidth < 640) {
+        setItemsPerPage(6);
+      } else if (window.innerWidth < 1024) {
+        setItemsPerPage(10);
+      } else {
+        setItemsPerPage(15);
+      }
+    };
+    updateItemsPerPage();
+    window.addEventListener("resize", updateItemsPerPage);
+    return () => window.removeEventListener("resize", updateItemsPerPage);
+  }, []);
 
   // Filter out split children from main view (they'll show under parent)
   const filteredTransactions = useMemo(() => {
@@ -59,6 +78,17 @@ export function TransactionsTab() {
       })
       .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
   }, [transactions, search, tagFilter]);
+
+  // Pagination calculations
+  const totalPages = Math.ceil(filteredTransactions.length / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const endIndex = startIndex + itemsPerPage;
+  const paginatedTransactions = filteredTransactions.slice(startIndex, endIndex);
+
+  // Reset to page 1 when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [search, tagFilter]);
 
   // Get split children for a transaction
   const getSplitChildren = (parentId: string) => {
@@ -585,22 +615,23 @@ export function TransactionsTab() {
                 </tr>
               </thead>
               <tbody>
-                {filteredTransactions.map((tx, index) => {
+                {paginatedTransactions.map((tx, index) => {
+                  const actualIndex = startIndex + index;
                   const splitChildren = getSplitChildren(tx.id);
                   const hasSplits = splitChildren.length > 0;
                   
                   return (
                     <React.Fragment key={tx.id}>
                       <tr 
-                        data-row-index={index}
+                        data-row-index={actualIndex}
                         className={`border-b last:border-0 transition-colors cursor-pointer ${
-                          focusedIndex === index 
+                          focusedIndex === actualIndex 
                             ? "bg-primary/10 ring-1 ring-primary/30" 
                             : selectedIds.has(tx.id)
                             ? "bg-muted/50"
                             : "hover:bg-muted/30"
                         } ${hasSplits ? "bg-muted/20" : ""}`}
-                        onClick={() => setFocusedIndex(index)}
+                        onClick={() => setFocusedIndex(actualIndex)}
                       >
                         <td className="px-2 md:px-3 py-3">
                           <input
@@ -831,6 +862,17 @@ export function TransactionsTab() {
               </tbody>
             </table>
           </div>
+          {filteredTransactions.length > itemsPerPage && (
+            <div className="mt-4 pt-4 border-t">
+              <PaginationControls
+                currentPage={currentPage}
+                totalPages={totalPages}
+                totalItems={filteredTransactions.length}
+                itemsPerPage={itemsPerPage}
+                onPageChange={setCurrentPage}
+              />
+            </div>
+          )}
         </CardContent>
       </Card>
 

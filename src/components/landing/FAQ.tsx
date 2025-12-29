@@ -8,32 +8,32 @@ const faqs = [
     answer: "No. Just import a statement (CSV, Excel, or PDF). That's it. No bank linking, no credentials, no waiting for account verification.",
   },
   {
-    question: "What do I get immediately with Lifetime?",
-    answer: "With the Lifetime plan you unlock: goal tracking with feasibility scores, Needs/Wants/Goals budget buckets, scenario mode (what-if calculator), reimbursement tracking with batches, credit card safety calculator, and advanced exports. Plus all future updates — forever.",
+    question: "What features are included?",
+    answer: "Everything is free! You get: goal tracking with feasibility scores, Needs/Wants/Goals budget buckets, scenario mode (what-if calculator), reimbursement tracking with batches, credit card safety calculator, advanced CSV/Excel exports, AI-powered parsing, auto-tagging rules, monthly action plans, and investment policy builder. All features are available at no cost.",
   },
   {
     question: "Is my financial data safe?",
-    answer: "Yes, 100%. Your data never leaves your browser. We use IndexedDB (local storage) to save everything on your device. No servers, no cloud, no risk. Even we can't see your transactions.",
+    answer: "Yes, 100%. Your data is stored securely in the cloud (Supabase) with encryption. You can also use local storage if you prefer. We use industry-standard security practices and your data is protected with authentication.",
   },
   {
     question: "What banks/statements are supported?",
     answer: "Any bank that lets you export statements as CSV, Excel, or PDF. We've tested extensively with Emirates NBD, but the AI-powered parser works with most formats. If yours doesn't work, reach out and we'll add support.",
   },
   {
-    question: "What do I get for $54?",
-    answer: "Lifetime access to all current and future features including goal tracking, budget buckets, scenario mode, CSV/Excel export, AI-powered parsing, auto-tagging rules. No subscriptions, no recurring fees. Pay once, use forever.",
+    question: "Is it really free?",
+    answer: "Yes! All features are completely free. We're in development and testing phase, so we're making everything available at no cost. Sign up and start using all features immediately.",
   },
   {
-    question: "Can I try before buying?",
-    answer: "Absolutely. The Free tier is fully functional — import statements, see your spending breakdown, detect recurring bills, spot anomalies. You only need Lifetime to unlock goals, budgets, and exports.",
+    question: "Do I need to sign up?",
+    answer: "Yes, you'll need to create a free account to use the app. This allows us to sync your data across devices and keep it secure. Sign up is quick and free.",
   },
   {
     question: "What's the Card Safety feature?",
     answer: "It calculates exactly how much you need to pay by your due date to avoid interest charges, accounting for payments you've already made and pending reimbursements. No more guessing.",
   },
   {
-    question: "Do you offer refunds?",
-    answer: "Yes, 7-day money-back guarantee. If the tool doesn't save you time or money, just email us and we'll refund you. No questions asked.",
+    question: "Can I use it on multiple devices?",
+    answer: "Yes! Your data syncs across all your devices when you're signed in. Just sign in on any device and your transactions, goals, and settings will be there.",
   },
 ];
 

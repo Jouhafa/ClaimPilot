@@ -7,39 +7,16 @@ import { Badge } from "@/components/ui/badge";
 const tiers = [
   {
     name: "Free",
-    subtitle: "Spending Truth",
+    subtitle: "All Features Included",
     price: "0",
-    currency: "AED",
-    description: "See exactly where your money goes (categories, recurring bills, unusual spikes).",
+    currency: "USD",
+    description: "Everything you need to understand your finances, set goals, track progress, and take action — completely free.",
     features: [
-      "Import unlimited statements",
+      "Import unlimited statements (CSV/PDF)",
       "Auto-categorization (Groceries, Dining, etc.)",
       "Monthly spend breakdown & top merchants",
       "Recurring/subscription detection",
       "Fixed vs variable spending analysis",
-      "Basic anomaly alerts",
-      "Local data storage (privacy-first)",
-    ],
-    lockedFeatures: [
-      "Goal tracking & planning",
-      "Budget allocation buckets",
-      "Monthly action plans",
-    ],
-    cta: "Start Free",
-    ctaLink: "/app",
-    highlighted: false,
-  },
-  {
-    name: "Lifetime",
-    subtitle: "Goals & Control",
-    price: "54",
-    currency: "USD",
-    localPrice: "~199 AED",
-    originalPrice: "$79",
-    description: "Turn insights into action: set goals, allocate buckets, track progress, export, and keep your history.",
-    badge: "Most Popular",
-    features: [
-      "Everything in Free, plus:",
       "Goal feasibility engine",
       "Bucket allocation (Needs/Wants/Goals)",
       "Scenario mode (what-if calculator)",
@@ -47,39 +24,21 @@ const tiers = [
       "Reimbursement tracker & batches",
       "Credit card safety calculator",
       "Advanced CSV/Excel exports",
-      "AI-powered insights (optional)",
-    ],
-    lockedFeatures: [
-      "Monthly action plans",
-      "Investment policy builder",
-    ],
-    cta: "Unlock Goals & Control",
-    ctaLink: "https://jouhafaz.gumroad.com/l/rizayy",
-    highlighted: true,
-  },
-  {
-    name: "Premium",
-    subtitle: "Monthly Playbook",
-    price: "99",
-    currency: "USD",
-    localPrice: "~365 AED",
-    description: "Your personal finance coach: monthly plan, weekly check-ins, smarter recommendations.",
-    badge: "Coming Soon",
-    features: [
-      "Everything in Lifetime, plus:",
+      "AI-powered insights",
       "Personalized 30-day action plans",
-      "Weekly financial checkups",
       "Investment policy builder",
-      "AI monthly narrative (\"What changed?\")",
-      "Smart payment scheduling",
-      "Goal progress tracking & streaks",
-      "Priority support",
+      "Monthly narrative & progress tracking",
+      "Cloud sync & multi-device access",
+      "Privacy-first — your data, your control",
     ],
     lockedFeatures: [],
-    cta: "Join Waitlist",
-    ctaLink: "#waitlist",
-    highlighted: false,
-    comingSoon: true,
+    cta: "Get Started Free",
+    ctaLink: "/app",
+    highlighted: true,
+    comingSoon: false,
+    badge: undefined as string | undefined,
+    localPrice: undefined as string | undefined,
+    originalPrice: undefined as string | undefined,
   },
 ];
 
@@ -89,14 +48,14 @@ export function Pricing() {
       <div className="max-w-6xl mx-auto">
         <div className="text-center mb-16">
           <h2 className="text-3xl md:text-4xl font-bold mb-4">
-            From clarity to control
+            Everything you need, completely free
           </h2>
           <p className="text-muted-foreground text-lg max-w-2xl mx-auto">
-            Start free to understand your spending. Upgrade when you&apos;re ready for goal-based budgeting and personalized action plans.
+            All features are available at no cost. Get started today and take control of your finances.
           </p>
         </div>
 
-        <div className="grid md:grid-cols-3 gap-6 lg:gap-8">
+        <div className="grid md:grid-cols-1 gap-6 lg:gap-8 max-w-2xl mx-auto">
           {tiers.map((tier) => (
             <div
               key={tier.name}
@@ -226,19 +185,19 @@ export function Pricing() {
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
               </svg>
-              100% Local Data
+              Privacy-First
             </div>
             <div className="flex items-center gap-2">
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
-              Lifetime Updates
+              Free Forever
             </div>
             <div className="flex items-center gap-2">
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
               </svg>
-              Secure Payment via Gumroad
+              Secure & Private
             </div>
           </div>
         </div>

@@ -77,7 +77,7 @@ export async function verifyLicense(licenseKey: string): Promise<{
 }
 
 /**
- * Parse PDF text using AI (optional enhancement)
+ * Parse PDF text using AI (for bank statements)
  */
 export async function parsePDFWithAI(text: string): Promise<{
   success: boolean;
@@ -92,6 +92,30 @@ export async function parsePDFWithAI(text: string): Promise<{
 }> {
   return callBackend(
     "/api/ai/parse-pdf",
+    {
+      method: "POST",
+      body: JSON.stringify({ text }),
+    }
+    // No fallback - caller should handle fallback to client-side parsing
+  );
+}
+
+/**
+ * Parse screenshot OCR text using AI (for mobile app screenshots)
+ */
+export async function parseScreenshotWithAI(text: string): Promise<{
+  success: boolean;
+  transactions: Array<{
+    date: string;
+    description: string;
+    merchant: string;
+    amount: number;
+    currency: string;
+  }>;
+  count: number;
+}> {
+  return callBackend(
+    "/api/ai/parse-screenshot",
     {
       method: "POST",
       body: JSON.stringify({ text }),

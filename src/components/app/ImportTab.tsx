@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useRef, useLayoutEffect } from "react";
+import { useState, useCallback, useRef, useLayoutEffect, useMemo } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -18,6 +18,7 @@ import type { Transaction, ImportProfile, Rule, StatementType } from "@/lib/type
 import { detectEnbdStatementType } from "@/lib/statementParser";
 import { useEffect } from "react";
 import { PARSER_VERSION } from "@/lib/parsers";
+import { toast } from "sonner";
 
 interface ImportTabProps {
   onImportSuccess?: () => void;
@@ -91,6 +92,10 @@ export function ImportTab({ onImportSuccess }: ImportTabProps) {
   const [pendingFileForType, setPendingFileForType] = useState<File | null>(null);
   const [pendingDetectedType, setPendingDetectedType] = useState<StatementType>("unknown");
   const [showClearAllModal, setShowClearAllModal] = useState(false);
+  // Stable detected type to prevent twitching - only update when modal opens
+  const stableDetectedType = useMemo(() => {
+    return showStatementTypeModal ? pendingDetectedType : "unknown";
+  }, [showStatementTypeModal, pendingDetectedType]);
   const [importDebug, setImportDebug] = useState<Array<{
     fileName: string;
     statementType: StatementType;
@@ -430,6 +435,15 @@ export function ImportTab({ onImportSuccess }: ImportTabProps) {
         await addTransactions(taggedTransactions);
         setSuccessCount(taggedTransactions.length);
         console.log(`Successfully imported ${taggedTransactions.length} transactions`);
+        toast.success("Import Successful", {
+          description: `Successfully imported ${taggedTransactions.length} transaction${taggedTransactions.length !== 1 ? "s" : ""}.`,
+          action: {
+            label: "View Transactions",
+            onClick: () => {
+              window.location.hash = "#transactions";
+            },
+          },
+        });
         
         // Auto-reconcile pending transactions with newly imported ones
         const pendingTxs = transactions.filter(
@@ -1547,40 +1561,72 @@ export function ImportTab({ onImportSuccess }: ImportTabProps) {
 
             {/* Statement Type Selection Modal */}
             {showStatementTypeModal && (
-              <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-                <Card className="w-full max-w-md m-4">
+              <div 
+                className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50"
+                onClick={(e) => {
+                  if (e.target === e.currentTarget) {
+                    setShowStatementTypeModal(false);
+                    setPendingFileForType(null);
+                  }
+                }}
+              >
+                <Card 
+                  className="w-full max-w-md m-4"
+                  style={{
+                    animation: "fadeIn 0.2s ease-out, slideUp 0.2s ease-out"
+                  }}
+                  onClick={(e) => e.stopPropagation()}
+                >
                   <CardHeader>
-                    <CardTitle>What type of statement is this?</CardTitle>
-                    <CardDescription>
+                    <div className="flex items-center justify-between">
+                      <CardTitle>What type of statement is this?</CardTitle>
+                      <Button 
+                        variant="ghost" 
+                        size="icon-sm"
+                        onClick={() => {
+                          setShowStatementTypeModal(false);
+                          setPendingFileForType(null);
+                        }}
+                        className="h-8 w-8"
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                      </Button>
+                    </div>
+                    <CardDescription className="break-all">
                       {pendingFileForType?.name}
-                      {pendingDetectedType !== "unknown" && (
-                        <span className="block mt-1 text-xs">
-                          Auto-detected: {pendingDetectedType === "enbd_debit" ? "Bank Account" : "Credit Card"}
+                      {stableDetectedType !== "unknown" && (
+                        <span className="block mt-1 text-xs text-muted-foreground">
+                          Auto-detected: {stableDetectedType === "enbd_debit" ? "Bank Account" : "Credit Card"}
                         </span>
                       )}
                     </CardDescription>
                   </CardHeader>
                   <CardContent className="space-y-3">
                     <Button
-                      variant={pendingDetectedType === "enbd_debit" ? "default" : "outline"}
-                      className="w-full justify-start"
+                      variant={stableDetectedType === "enbd_debit" ? "default" : "outline"}
+                      className="w-full justify-start h-14"
                       onClick={() => handleStatementTypeConfirmed("enbd_debit")}
                     >
-                      <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <svg className="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
                       </svg>
                       Bank Account (Debit / Current / Savings)
                     </Button>
                     <Button
-                      variant={pendingDetectedType === "enbd_credit" ? "default" : "outline"}
-                      className="w-full justify-start"
+                      variant={stableDetectedType === "enbd_credit" ? "default" : "outline"}
+                      className="w-full justify-start h-14"
                       onClick={() => handleStatementTypeConfirmed("enbd_credit")}
                     >
-                      <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <svg className="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
                       </svg>
                       Credit Card
                     </Button>
+                    <p className="text-xs text-muted-foreground text-center mt-4">
+                      Supported: CSV, Excel (.xlsx), PDF
+                    </p>
                   </CardContent>
                 </Card>
               </div>

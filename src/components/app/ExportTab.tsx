@@ -4,33 +4,13 @@ import { useState, useEffect, useMemo } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { useApp } from "@/lib/context";
 import { exportToCSV, exportToExcel, downloadCSV, downloadExcel, calculateSummary } from "@/lib/export";
 import { EXPORT_PRESETS, exportToPresetCSV, downloadPresetCSV, type ExportPreset } from "@/lib/exportPresets";
-import { saveLicense, loadLicense, clearLicense } from "@/lib/storage";
 import { PDFSummary } from "./PDFSummary";
-import type { LicenseTier, License } from "@/lib/types";
-
-const TIER_LABELS: Record<LicenseTier, string> = {
-  free: "Free",
-  paid: "Lifetime Access",
-  premium: "Premium",
-};
-
-const TIER_COLORS: Record<LicenseTier, string> = {
-  free: "bg-muted text-muted-foreground",
-  paid: "bg-green-500/20 text-green-500",
-  premium: "bg-purple-500/20 text-purple-500",
-};
 
 export function ExportTab() {
   const { transactions } = useApp();
-  const [licenseKey, setLicenseKey] = useState("");
-  const [license, setLicense] = useState<License | null>(null);
-  const [isVerifying, setIsVerifying] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const [selectedPreset, setSelectedPreset] = useState<ExportPreset>("simple");
   const [showPDFPreview, setShowPDFPreview] = useState(false);
 
@@ -40,61 +20,9 @@ export function ExportTab() {
     [transactions]
   );
 
-  const isUnlocked = license && license.tier !== "free";
-  const isPremium = license?.tier === "premium";
-
-  // Check for existing license on mount
-  useEffect(() => {
-    loadLicense().then((savedLicense) => {
-      if (savedLicense) {
-        setLicense(savedLicense);
-        setLicenseKey(savedLicense.key);
-      }
-    });
-  }, []);
-
-  const handleVerify = async () => {
-    if (!licenseKey.trim()) {
-      setError("Please enter a license key");
-      return;
-    }
-
-    setIsVerifying(true);
-    setError(null);
-
-    try {
-      const response = await fetch("/api/verify", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ licenseKey: licenseKey.trim() }),
-      });
-
-      const data = await response.json();
-
-      if (data.valid) {
-        const newLicense: License = {
-          key: licenseKey.trim(),
-          tier: data.tier || "paid",
-          validatedAt: new Date().toISOString(),
-          email: data.purchase?.email,
-        };
-        setLicense(newLicense);
-        await saveLicense(newLicense.key, newLicense.tier, newLicense.email);
-      } else {
-        setError(data.error || "Invalid license key");
-      }
-    } catch {
-      setError("Failed to verify license. Please try again.");
-    } finally {
-      setIsVerifying(false);
-    }
-  };
-
-  const handleRemoveLicense = async () => {
-    await clearLicense();
-    setLicense(null);
-    setLicenseKey("");
-  };
+  // DEV MODE: All features are free - no license required
+  const isUnlocked = true;
+  const isPremium = true;
 
   const handleExportCSV = () => {
     const csv = exportToCSV(transactions);
@@ -126,96 +54,7 @@ export function ExportTab() {
         </p>
       </div>
 
-      {/* License Status / Unlock */}
-      {!isUnlocked ? (
-        <Card className="border-primary/30 bg-primary/5">
-          <CardHeader>
-            <div className="flex items-center gap-2">
-              <svg className="w-5 h-5 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
-              </svg>
-              <CardTitle className="text-lg">Unlock Exports</CardTitle>
-            </div>
-            <CardDescription>
-              Enter your license key to enable CSV and Excel exports
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="flex gap-3">
-              <div className="flex-1">
-                <Label htmlFor="licenseKey" className="sr-only">License Key</Label>
-                <Input
-                  id="licenseKey"
-                  placeholder="XXXXXXXX-XXXXXXXX-XXXXXXXX-XXXXXXXX"
-                  className="font-mono"
-                  value={licenseKey}
-                  onChange={(e) => setLicenseKey(e.target.value)}
-                  disabled={isVerifying}
-                />
-              </div>
-              <Button onClick={handleVerify} disabled={isVerifying}>
-                {isVerifying ? "Verifying..." : "Verify"}
-              </Button>
-            </div>
-            {error && (
-              <p className="text-sm text-destructive mt-2">{error}</p>
-            )}
-            <div className="mt-4 space-y-2">
-              <p className="text-sm text-muted-foreground">
-                Don&apos;t have a license?
-              </p>
-              <div className="flex flex-wrap gap-2">
-                <a 
-                  href="https://jouhafaz.gumroad.com/l/rizayy" 
-                  target="_blank" 
-                  rel="noopener noreferrer" 
-                  className="text-primary hover:underline text-sm"
-                >
-                  Lifetime Access ($54) →
-                </a>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      ) : (
-        <Card className={`border-2 ${license?.tier === "premium" ? "border-purple-500/30 bg-purple-500/5" : "border-green-500/30 bg-green-500/5"}`}>
-          <CardContent className="pt-6">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className={`w-10 h-10 rounded-full flex items-center justify-center ${license?.tier === "premium" ? "bg-purple-500/20" : "bg-green-500/20"}`}>
-                  <svg className={`w-5 h-5 ${license?.tier === "premium" ? "text-purple-500" : "text-green-500"}`} fill="currentColor" viewBox="0 0 20 20">
-                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                  </svg>
-                </div>
-                <div>
-                  <div className="flex items-center gap-2">
-                    <p className={`font-semibold ${license?.tier === "premium" ? "text-purple-500" : "text-green-500"}`}>
-                      {TIER_LABELS[license?.tier || "paid"]}
-                    </p>
-                    <Badge className={TIER_COLORS[license?.tier || "paid"]}>
-                      {license?.tier === "premium" ? "All Features" : "Export Unlocked"}
-                    </Badge>
-                  </div>
-                  <p className="text-sm text-muted-foreground">
-                    {license?.email || "Full export features enabled"}
-                  </p>
-                </div>
-              </div>
-              <Button variant="ghost" size="sm" onClick={handleRemoveLicense}>
-                Remove
-              </Button>
-            </div>
-            {license?.tier === "paid" && (
-              <div className="mt-4 p-3 rounded-lg bg-muted/50 text-sm">
-                <p className="text-muted-foreground">
-                  Want monthly action plans & AI narratives?{" "}
-                  <span className="text-purple-500 font-medium">Premium coming soon!</span>
-                </p>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      )}
+      {/* DEV MODE: All features are free - no license UI needed */}
 
       {/* Summary Stats */}
       {reimbursables.length > 0 && (
@@ -252,16 +91,13 @@ export function ExportTab() {
       )}
 
       {/* Export Presets */}
-      <Card className={!isUnlocked ? "opacity-60" : ""}>
+      <Card>
         <CardHeader>
-          <div className="flex items-center justify-between">
-            <div>
-              <CardTitle className="text-lg">Export Presets</CardTitle>
-              <CardDescription>
-                Choose a format that matches your finance team&apos;s requirements
-              </CardDescription>
-            </div>
-            {!isUnlocked && <Badge variant="outline">Lifetime+</Badge>}
+          <div>
+            <CardTitle className="text-lg">Export Presets</CardTitle>
+            <CardDescription>
+              Choose a format that matches your finance team&apos;s requirements
+            </CardDescription>
           </div>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -275,7 +111,7 @@ export function ExportTab() {
                     selectedPreset === preset
                       ? "border-primary bg-primary/5"
                       : "border-border hover:border-primary/50"
-                  } ${!isUnlocked ? "pointer-events-none" : ""}`}
+                  }`}
                   onClick={() => setSelectedPreset(preset)}
                 >
                   <div className="flex items-center gap-2 mb-2">
@@ -284,7 +120,6 @@ export function ExportTab() {
                       checked={selectedPreset === preset}
                       onChange={() => setSelectedPreset(preset)}
                       className="text-primary"
-                      disabled={!isUnlocked}
                     />
                     <span className="font-medium text-sm">{config.name}</span>
                   </div>
@@ -299,24 +134,13 @@ export function ExportTab() {
           </div>
           <Button
             className="w-full"
-            disabled={!isUnlocked || reimbursables.length === 0}
+            disabled={reimbursables.length === 0}
             onClick={handleExportPreset}
           >
-            {!isUnlocked ? (
-              <>
-                <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-                </svg>
-                Unlock to Export
-              </>
-            ) : (
-              <>
-                <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                </svg>
-                Export as {EXPORT_PRESETS[selectedPreset].name}
-              </>
-            )}
+            <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+            </svg>
+            Export as {EXPORT_PRESETS[selectedPreset].name}
           </Button>
         </CardContent>
       </Card>
@@ -361,12 +185,9 @@ export function ExportTab() {
 
       {/* Standard Export Options */}
       <div className="grid md:grid-cols-2 gap-6">
-        <Card className={!isUnlocked ? "opacity-60" : ""}>
+        <Card>
           <CardHeader>
-            <div className="flex items-center justify-between">
-              <CardTitle className="text-lg">Standard CSV</CardTitle>
-              {!isUnlocked && <Badge variant="outline">Lifetime+</Badge>}
-            </div>
+            <CardTitle className="text-lg">Standard CSV</CardTitle>
             <CardDescription>
               Basic CSV with all fields
             </CardDescription>
@@ -388,34 +209,20 @@ export function ExportTab() {
             <Button
               className="w-full"
               variant="outline"
-              disabled={!isUnlocked || reimbursables.length === 0}
+              disabled={reimbursables.length === 0}
               onClick={handleExportCSV}
             >
-              {!isUnlocked ? (
-                <>
-                  <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-                  </svg>
-                  Unlock to Export
-                </>
-              ) : (
-                <>
-                  <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                  </svg>
-                  Download CSV
-                </>
-              )}
+              <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+              </svg>
+              Download CSV
             </Button>
           </CardContent>
         </Card>
 
-        <Card className={!isUnlocked ? "opacity-60" : ""}>
+        <Card>
           <CardHeader>
-            <div className="flex items-center justify-between">
-              <CardTitle className="text-lg">Excel Export</CardTitle>
-              {!isUnlocked && <Badge variant="outline">Lifetime+</Badge>}
-            </div>
+            <CardTitle className="text-lg">Excel Export</CardTitle>
             <CardDescription>
               Multi-sheet Excel workbook
             </CardDescription>
@@ -437,24 +244,13 @@ export function ExportTab() {
             <Button
               className="w-full"
               variant="outline"
-              disabled={!isUnlocked || reimbursables.length === 0}
+              disabled={reimbursables.length === 0}
               onClick={handleExportExcel}
             >
-              {!isUnlocked ? (
-                <>
-                  <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-                  </svg>
-                  Unlock to Export
-                </>
-              ) : (
-                <>
-                  <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                  </svg>
-                  Download Excel
-                </>
-              )}
+              <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+              </svg>
+              Download Excel
             </Button>
           </CardContent>
         </Card>

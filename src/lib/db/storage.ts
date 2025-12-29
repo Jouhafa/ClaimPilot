@@ -82,7 +82,100 @@ export async function loadTransactions(userId: string): Promise<Transaction[]> {
   }));
 }
 
+// Helper function to ensure user exists in Supabase
+async function ensureUserExists(userId: string, email?: string): Promise<void> {
+  const supabase = getAdminClient();
+  const isClient = typeof window !== "undefined";
+  
+  // Check if user exists
+  const { data: existingUser, error: checkError } = await (supabase.from("users") as any)
+    .select("id")
+    .eq("id", userId)
+    .maybeSingle();
+  
+  if (checkError && checkError.code !== "PGRST116") {
+    // If we can't even check (e.g., RLS blocking), log and continue
+    // This might happen on client if RLS is misconfigured
+    console.warn("Could not check if user exists:", checkError);
+    if (isClient) {
+      // On client, try to create via API route
+      try {
+        const response = await fetch("/api/users/ensure", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+        });
+        if (response.ok) {
+          const result = await response.json();
+          console.log("User ensured via API:", result.message);
+          return;
+        } else {
+          const error = await response.json();
+          console.error("Failed to ensure user via API:", error);
+        }
+      } catch (apiError) {
+        console.error("Error calling ensure user API:", apiError);
+      }
+      // If API call fails, continue and let the operation fail naturally
+      return;
+    }
+  }
+  
+  // If user doesn't exist, try to create them
+  if (!existingUser) {
+    // On the client side, call API route to create user server-side
+    if (isClient) {
+      try {
+        const response = await fetch("/api/users/ensure", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+        });
+        
+        if (response.ok) {
+          const result = await response.json();
+          console.log("User created via API:", result.message);
+          return;
+        } else {
+          const error = await response.json();
+          console.error("Failed to create user via API:", error);
+          throw new Error(`User does not exist and could not be created: ${error.details || error.error}`);
+        }
+      } catch (apiError) {
+        console.error("Error calling ensure user API:", apiError);
+        throw new Error(`User does not exist and could not be created: ${apiError instanceof Error ? apiError.message : String(apiError)}`);
+      }
+    }
+    
+    // On the server side, we can create users directly (using service role key)
+    const { error: createError } = await (supabase.from("users") as any).insert({
+      id: userId,
+      email: email || `${userId}@temp.local`, // Temporary email if not provided
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    });
+    
+    if (createError) {
+      console.error("Error creating user in Supabase:", createError);
+      // On server, we can throw since we have proper permissions
+      throw new Error(`User does not exist in database and could not be created: ${createError.message}`);
+    }
+    
+    console.log(`Created user ${userId} in Supabase`);
+  }
+}
+
 export async function saveTransactions(userId: string, transactions: Transaction[]): Promise<void> {
+  if (!userId) {
+    throw new Error("saveTransactions requires a userId");
+  }
+  
+  if (!transactions || transactions.length === 0) {
+    console.warn("saveTransactions called with empty transactions array");
+    return;
+  }
+  
+  // Ensure user exists in Supabase before saving
+  await ensureUserExists(userId);
+  
   const supabase = getAdminClient();
   const { error } = await (supabase.from("transactions") as any).upsert(
     transactions.map((tx) => ({
@@ -125,8 +218,22 @@ export async function saveTransactions(userId: string, transactions: Transaction
   );
 
   if (error) {
-    console.error("Error saving transactions:", error);
-    throw error;
+    const errorInfo = {
+      message: error.message || "Unknown error",
+      details: error.details || null,
+      hint: error.hint || null,
+      code: error.code || null,
+      userId,
+      transactionCount: transactions.length,
+      firstTransaction: transactions[0] ? {
+        id: transactions[0].id,
+        date: transactions[0].date,
+        merchant: transactions[0].merchant,
+        amount: transactions[0].amount,
+      } : null,
+    };
+    console.error("Error saving transactions:", JSON.stringify(errorInfo, null, 2));
+    throw new Error(`Failed to save transactions: ${error.message || "Unknown error"}`);
   }
 }
 

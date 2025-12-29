@@ -35,7 +35,7 @@ export function Hero() {
             <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75"></span>
             <span className="relative inline-flex rounded-full h-2 w-2 bg-primary"></span>
           </span>
-          <span className="text-sm text-primary font-medium">Early Access — Lifetime deal $54 for first 20 buyers</span>
+          <span className="text-sm text-primary font-medium">Free — All features available for testing</span>
         </div>
 
         {/* Headline - Broader positioning */}
@@ -65,24 +65,12 @@ export function Hero() {
         <div className="flex flex-col sm:flex-row gap-6 justify-center items-center animate-fade-in-up" style={{ animationDelay: "400ms", opacity: 0 }}>
           <Link href="/app">
             <Button size="lg" className="h-16 px-10 text-xl font-bold animate-pulse-glow-enhanced hover:scale-105 transition-all duration-200 shadow-2xl">
-              Try Free (Demo Data)
+              Get Started Free
               <svg className="ml-3 w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
               </svg>
             </Button>
           </Link>
-          <a
-            href="https://jouhafaz.gumroad.com/l/rizayy"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Button size="lg" variant="outline" className="h-16 px-10 text-xl font-bold border-2 hover:scale-105 transition-all duration-200 shadow-lg">
-              Get Lifetime Access ($54)
-              <svg className="ml-3 w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-              </svg>
-            </Button>
-          </a>
         </div>
 
         {/* Social proof placeholder */}
@@ -110,9 +98,9 @@ export function Hero() {
           </div>
           <div className="flex items-center gap-2">
             <svg className="w-5 h-5 text-primary" fill="currentColor" viewBox="0 0 20 20">
-              <path fillRule="evenodd" d="M4 4a2 2 0 00-2 2v4a2 2 0 002 2V6h10a2 2 0 00-2-2H4zm2 6a2 2 0 012-2h8a2 2 0 012 2v4a2 2 0 01-2 2H8a2 2 0 01-2-2v-4zm6 4a2 2 0 100-4 2 2 0 000 4z" clipRule="evenodd" />
+              <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
             </svg>
-            One-time payment, lifetime access
+            Free forever — all features included
           </div>
         </div>
       </div>

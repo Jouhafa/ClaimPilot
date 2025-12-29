@@ -13,6 +13,7 @@ import { SetupChecklist } from "./SetupChecklist";
 import { AlertsPanel } from "./AlertsPanel";
 import { ROICard } from "./ROICard";
 import { getMonthlyWrap } from "@/lib/storage";
+import { getMonthOverMonthComparison } from "@/lib/categories";
 import type { WrapSnapshot } from "@/lib/types";
 
 interface HomeDashboardProps {
@@ -61,6 +62,44 @@ export function HomeDashboard({ onNavigate, onPlayWrap }: HomeDashboardProps) {
     }
     return "You're all set for this month";
   }, [transactions, profile]);
+
+  // Month-over-month comparison
+  const monthComparison = useMemo(() => {
+    const now = new Date();
+    const currentMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+    const previousMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+    const previousMonthEnd = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59);
+
+    const currentMonthTransactions = transactions.filter(t => {
+      const txDate = new Date(t.date);
+      return txDate >= currentMonthStart && txDate <= now && t.amount < 0 && !t.parentId;
+    });
+
+    const previousMonthTransactions = transactions.filter(t => {
+      const txDate = new Date(t.date);
+      return txDate >= previousMonthStart && txDate <= previousMonthEnd && t.amount < 0 && !t.parentId;
+    });
+
+    const currentTotal = currentMonthTransactions.reduce((sum, t) => sum + Math.abs(t.amount), 0);
+    const previousTotal = previousMonthTransactions.reduce((sum, t) => sum + Math.abs(t.amount), 0);
+    const change = currentTotal - previousTotal;
+    const changePercent = previousTotal > 0 ? ((change / previousTotal) * 100) : (currentTotal > 0 ? 100 : 0);
+
+    // Get top category changes
+    const categoryComparison = getMonthOverMonthComparison(transactions, now);
+    const topChanges = categoryComparison
+      .filter(c => Math.abs(c.changePercentage) > 5) // Only significant changes (>5%)
+      .slice(0, 3);
+
+    return {
+      currentTotal,
+      previousTotal,
+      change,
+      changePercent,
+      topChanges,
+      hasData: previousTotal > 0 || currentTotal > 0,
+    };
+  }, [transactions]);
 
   // Quick action tiles (Wio-style)
   const quickActions = [
@@ -210,10 +249,88 @@ export function HomeDashboard({ onNavigate, onPlayWrap }: HomeDashboardProps) {
         </div>
       )}
 
-      {/* ROI Card */}
-      {appState.state !== "NEEDS_IMPORT" && (
-        <ROICard onNavigate={onNavigate} />
+      {/* Month-over-Month Comparison */}
+      {appState.state !== "NEEDS_IMPORT" && monthComparison.hasData && (
+        <Card className="border border-border/50">
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between mb-4">
+              <div>
+                <h3 className="text-[16px] font-semibold mb-1" style={{ fontWeight: 600 }}>This month vs last month</h3>
+                <p className="text-[13px] text-muted-foreground">Spending comparison</p>
+              </div>
+              <button
+                onClick={() => onNavigate("analytics")}
+                className="text-[13px] text-muted-foreground hover:text-foreground flex items-center gap-1 transition-colors"
+              >
+                Full comparison
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                </svg>
+              </button>
+            </div>
+            
+            <div className="space-y-4">
+              {/* Total Spending Delta */}
+              <div className="flex items-center justify-between p-3 rounded-lg bg-muted/50">
+                <div>
+                  <p className="text-[13px] text-muted-foreground">Total spending</p>
+                  <p className="text-[18px] font-bold mt-1">
+                    {monthComparison.currentTotal.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })} {profile?.currency || "AED"}
+                  </p>
+                </div>
+                <div className="text-right">
+                  <p className={cn(
+                    "text-[14px] font-semibold",
+                    monthComparison.change >= 0 ? "text-red-500" : "text-green-500"
+                  )}>
+                    {monthComparison.change >= 0 ? "+" : ""}{monthComparison.change.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })} {profile?.currency || "AED"}
+                  </p>
+                  <p className={cn(
+                    "text-[12px]",
+                    monthComparison.changePercent >= 0 ? "text-red-500" : "text-green-500"
+                  )}>
+                    {monthComparison.changePercent >= 0 ? "+" : ""}{monthComparison.changePercent.toFixed(1)}%
+                  </p>
+                </div>
+              </div>
+
+              {/* Top Category Changes */}
+              {monthComparison.topChanges.length > 0 && (
+                <div className="space-y-2">
+                  <p className="text-[13px] font-medium" style={{ fontWeight: 500 }}>Biggest changes</p>
+                  {monthComparison.topChanges.map((change) => (
+                    <div key={change.category} className="flex items-center justify-between p-2 rounded-lg bg-muted/30">
+                      <span className="text-[13px]">{change.label}</span>
+                      <div className="flex items-center gap-2">
+                        <span className="text-[12px] text-muted-foreground">
+                          {change.previousMonth.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })} →
+                        </span>
+                        <span className={cn(
+                          "text-[13px] font-semibold",
+                          change.change >= 0 ? "text-red-500" : "text-green-500"
+                        )}>
+                          {change.currentMonth.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                        </span>
+                        <span className={cn(
+                          "text-[11px] font-medium",
+                          change.changePercentage >= 0 ? "text-red-500" : "text-green-500"
+                        )}>
+                          ({change.changePercentage >= 0 ? "+" : ""}{change.changePercentage.toFixed(0)}%)
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </CardContent>
+        </Card>
       )}
+
+      {/* ROI Card - Locked (WIP) */}
+      {/* {appState.state !== "NEEDS_IMPORT" && (
+        <ROICard onNavigate={onNavigate} />
+      )} */}
 
       {/* This Month's Wrap Card */}
       {appState.state !== "NEEDS_IMPORT" && currentWrap && (

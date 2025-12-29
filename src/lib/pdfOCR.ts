@@ -487,3 +487,148 @@ export async function extractPDFTextWithOCR(
     throw error;
   }
 }
+
+/**
+ * Extract text from an image file (screenshot/photo) using OCR
+ * Supports common image formats: PNG, JPEG, WebP
+ */
+export async function extractImageTextWithOCR(
+  file: File,
+  onProgress?: OCRProgressCallback,
+  signal?: AbortSignal,
+  options?: OCROptions
+): Promise<string> {
+  try {
+    // Default options
+    const opts: Required<OCROptions> = {
+      langs: options?.langs || "ara+eng",
+      renderScale: options?.renderScale || 4.0,
+      crop: options?.crop || { top: 0, left: 0, right: 1, bottom: 1 }, // Full image by default
+    };
+
+    if (signal?.aborted) {
+      throw new Error("OCR cancelled by user");
+    }
+
+    // Validate file type
+    const validTypes = ["image/png", "image/jpeg", "image/jpg", "image/webp"];
+    if (!validTypes.includes(file.type)) {
+      throw new Error(`Unsupported image type: ${file.type}. Supported: PNG, JPEG, WebP`);
+    }
+
+    // Load image
+    const imageUrl = URL.createObjectURL(file);
+    const img = new Image();
+    
+    await new Promise<void>((resolve, reject) => {
+      img.onload = () => resolve();
+      img.onerror = () => reject(new Error("Failed to load image"));
+      img.src = imageUrl;
+    });
+
+    // Create canvas
+    const canvas = document.createElement("canvas");
+    const scale = opts.renderScale;
+    canvas.width = img.width * scale;
+    canvas.height = img.height * scale;
+    const ctx = canvas.getContext("2d");
+    
+    if (!ctx) {
+      throw new Error("Failed to get canvas context");
+    }
+
+    // Draw image to canvas with scaling
+    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+    URL.revokeObjectURL(imageUrl);
+
+    onProgress?.({
+      page: 1,
+      totalPages: 1,
+      progress: 0.2,
+      status: "Image loaded, preprocessing...",
+    });
+
+    // Crop if needed
+    let canvasToProcess = canvas;
+    if (opts.crop && (opts.crop.top > 0 || opts.crop.left > 0 || opts.crop.right < 1 || opts.crop.bottom < 1)) {
+      const cropRegion = {
+        top: Math.floor(canvas.height * opts.crop.top),
+        left: Math.floor(canvas.width * opts.crop.left),
+        right: Math.floor(canvas.width * opts.crop.right),
+        bottom: Math.floor(canvas.height * opts.crop.bottom),
+      };
+      canvasToProcess = cropCanvasToRegion(canvas, cropRegion);
+    }
+
+    // Get image data
+    const imageData = ctx.getImageData(0, 0, canvasToProcess.width, canvasToProcess.height);
+
+    onProgress?.({
+      page: 1,
+      totalPages: 1,
+      progress: 0.4,
+      status: "Preprocessing image...",
+    });
+
+    // Preprocess image for better OCR
+    const processedImageData = preprocessImageForOCRFast(imageData);
+
+    // Create processed canvas
+    const processedCanvas = document.createElement("canvas");
+    processedCanvas.width = canvasToProcess.width;
+    processedCanvas.height = canvasToProcess.height;
+    const processedContext = processedCanvas.getContext("2d");
+    if (processedContext) {
+      processedContext.putImageData(processedImageData, 0, 0);
+    }
+
+    if (signal?.aborted) {
+      await cleanupOCRWorker(opts.langs);
+      throw new Error("OCR cancelled by user");
+    }
+
+    // Convert to blob for OCR
+    const blob = await new Promise<Blob | null>((resolve) => {
+      processedCanvas.toBlob((blob) => resolve(blob), "image/png");
+    });
+
+    if (!blob || blob.size === 0) {
+      throw new Error("Failed to process image for OCR");
+    }
+
+    onProgress?.({
+      page: 1,
+      totalPages: 1,
+      progress: 0.6,
+      status: "Running OCR...",
+    });
+
+    // Initialize OCR worker
+    const worker = await getTesseractWorker(opts.langs, (m: any) => {
+      if (m.status === "recognizing text") {
+        const progress = m.progress || 0;
+        onProgress?.({
+          page: 1,
+          totalPages: 1,
+          progress: 0.6 + progress * 0.4, // 60-100% range
+          status: `Recognizing text... ${Math.round(progress * 100)}%`,
+        });
+      }
+    });
+
+    // Perform OCR
+    const { data: { text } } = await worker.recognize(blob);
+
+    onProgress?.({
+      page: 1,
+      totalPages: 1,
+      progress: 1.0,
+      status: "OCR complete",
+    });
+
+    return normalizeOCRText(text);
+  } catch (error) {
+    console.error("Image OCR extraction failed:", error);
+    throw error;
+  }
+}

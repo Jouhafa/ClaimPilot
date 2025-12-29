@@ -33,11 +33,12 @@ import { MonthlyRecapJourney } from "./MonthlyRecapJourney";
 import { CustomWrapBuilder } from "./CustomWrapBuilder";
 import { RecapsLibrary } from "./RecapsLibrary";
 import { SettingsTab } from "./SettingsTab";
-import { ROITrackerTab } from "./ROITrackerTab";
+// import { ROITrackerTab } from "./ROITrackerTab"; // Locked - WIP
 import { RemindersTab } from "./RemindersTab";
 import { ReminderAlerts } from "./ReminderAlerts";
-import { ExpenseCoverageTab } from "./ExpenseCoverageTab";
+// import { ExpenseCoverageTab } from "./ExpenseCoverageTab"; // Locked - WIP
 import { MobileNavModal } from "./MobileNavModal";
+import { NotificationPanel, type Notification } from "./NotificationPanel";
 import { getAutoTagStats } from "@/lib/autoTagger";
 import type { LicenseTier, WrapSnapshot } from "@/lib/types";
 import { generateMonthlyWrap } from "@/lib/wrapComputation";
@@ -66,8 +67,13 @@ function AppContent() {
   const [wrapMonthKey, setWrapMonthKey] = useState<string | undefined>(undefined);
   const [selectedMonth, setSelectedMonth] = useState(() => new Date());
   const [showMobileNavModal, setShowMobileNavModal] = useState(false);
+  const [notifications, setNotifications] = useState<Notification[]>([]);
   const { transactions, goals, buckets, tier, hasAccess } = useApp();
   const searchParams = useSearchParams();
+
+  const dismissNotification = useCallback((id: string) => {
+    setNotifications((prev) => prev.filter((n) => n.id !== id));
+  }, []);
 
   // Check if dev mode is enabled via ?dev=1
   const isDevMode = searchParams.get("dev") === "1";
@@ -449,64 +455,52 @@ function AppContent() {
                   </CardContent>
                 </Card>
               </PaywallGate>
-              {/* ROI Tracker Card */}
-              <Card className="card-lift">
+              {/* ROI Tracker Card - Locked (WIP) */}
+              <Card className="card-lift opacity-60">
                 <CardContent className="p-6">
                   <div className="flex items-start justify-between mb-4">
                     <div>
-                      <h2 className="text-[18px] font-semibold mb-1" style={{ fontWeight: 600 }}>ROI Tracker</h2>
+                      <div className="flex items-center gap-2">
+                        <h2 className="text-[18px] font-semibold mb-1" style={{ fontWeight: 600 }}>ROI Tracker</h2>
+                        <Badge variant="secondary" className="text-xs">Coming Soon</Badge>
+                      </div>
                       <p className="text-[13px] text-muted-foreground">Track value recovered</p>
                     </div>
-                    <button
-                      onClick={() => handleNavigate("roi-tracker")}
-                      className="text-[13px] text-muted-foreground hover:text-foreground flex items-center gap-1 transition-colors"
-                    >
-                      View details
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                      </svg>
-                    </button>
                   </div>
                   <div className="text-center py-4">
-                    <p className="text-sm text-muted-foreground">View your ROI dashboard</p>
+                    <p className="text-sm text-muted-foreground">This feature is currently under development</p>
                     <Button
                       variant="outline"
                       size="sm"
                       className="mt-3"
-                      onClick={() => handleNavigate("roi-tracker")}
+                      disabled
                     >
-                      Open ROI Tracker
+                      Coming Soon
                     </Button>
                   </div>
                 </CardContent>
               </Card>
-              {/* Expense Coverage Card */}
-              <Card className="card-lift">
+              {/* Expense Coverage Card - Locked (WIP) */}
+              <Card className="card-lift opacity-60">
                 <CardContent className="p-6">
                   <div className="flex items-start justify-between mb-4">
                     <div>
-                      <h2 className="text-[18px] font-semibold mb-1" style={{ fontWeight: 600 }}>Expense Coverage</h2>
+                      <div className="flex items-center gap-2">
+                        <h2 className="text-[18px] font-semibold mb-1" style={{ fontWeight: 600 }}>Expense Coverage</h2>
+                        <Badge variant="secondary" className="text-xs">Coming Soon</Badge>
+                      </div>
                       <p className="text-[13px] text-muted-foreground">Find missing claims</p>
                     </div>
-                    <button
-                      onClick={() => handleNavigate("expense-coverage")}
-                      className="text-[13px] text-muted-foreground hover:text-foreground flex items-center gap-1 transition-colors"
-                    >
-                      View details
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                      </svg>
-                    </button>
                   </div>
                   <div className="text-center py-4">
-                    <p className="text-sm text-muted-foreground">Detect work expenses you forgot to claim</p>
+                    <p className="text-sm text-muted-foreground">This feature is currently under development</p>
                     <Button
                       variant="outline"
                       size="sm"
                       className="mt-3"
-                      onClick={() => handleNavigate("expense-coverage")}
+                      disabled
                     >
-                      Open Expense Coverage
+                      Coming Soon
                     </Button>
                   </div>
                 </CardContent>
@@ -620,11 +614,53 @@ function AppContent() {
       case "settings":
         return <SettingsTab onNavigate={handleNavigate} />;
       case "roi-tracker":
-        return <ROITrackerTab />;
+        return (
+          <div className="space-y-6 max-w-4xl mx-auto">
+            <div>
+              <h1 className="text-[34px] font-bold tracking-tight" style={{ fontWeight: 700, lineHeight: 1.35 }}>
+                ROI Tracker
+              </h1>
+              <p className="text-[15px] text-muted-foreground mt-2" style={{ lineHeight: 1.6 }}>
+                Track value recovered from your financial tools
+              </p>
+            </div>
+            <Card style={{ borderRadius: "16px" }} className="opacity-60">
+              <CardContent className="pt-6">
+                <div className="text-center py-12">
+                  <Badge variant="secondary" className="mb-4">Coming Soon</Badge>
+                  <p className="text-muted-foreground text-sm">
+                    ROI Tracker is currently under development and will be available in a future update.
+                  </p>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        );
       case "reminders":
         return <RemindersTab />;
       case "expense-coverage":
-        return <ExpenseCoverageTab />;
+        return (
+          <div className="space-y-6 max-w-4xl mx-auto">
+            <div>
+              <h1 className="text-[34px] font-bold tracking-tight" style={{ fontWeight: 700, lineHeight: 1.35 }}>
+                Expense Coverage
+              </h1>
+              <p className="text-[15px] text-muted-foreground mt-2" style={{ lineHeight: 1.6 }}>
+                Detect work expenses you forgot to claim
+              </p>
+            </div>
+            <Card style={{ borderRadius: "16px" }} className="opacity-60">
+              <CardContent className="pt-6">
+                <div className="text-center py-12">
+                  <Badge variant="secondary" className="mb-4">Coming Soon</Badge>
+                  <p className="text-muted-foreground text-sm">
+                    Expense Coverage is currently under development and will be available in a future update.
+                  </p>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        );
       case "learn":
       case "coach":
         return <CoachTab onNavigate={handleNavigate} />;
@@ -651,15 +687,16 @@ function AppContent() {
       </div>
 
       {/* Main content */}
-      <main className="flex-1 overflow-hidden bg-background">
+      <main className="flex-1 overflow-hidden bg-background h-screen md:h-screen">
         {/* Coach page - full screen */}
         {activeTab === "coach" || activeTab === "learn" ? (
-          <div className="relative h-screen overflow-hidden">
+          <div className="relative h-full overflow-hidden">
             {renderContent()}
           </div>
         ) : (
-          <div className="h-full overflow-y-auto smooth-scroll" data-scroll-container>
-            <div className="min-h-screen px-2 py-3 md:p-6 lg:p-8 max-w-[1120px] mx-auto pb-20 md:pb-8">
+          <div className="h-full overflow-hidden">
+            {/* Mobile: account for bottom nav (approx 88px), Desktop: full height */}
+            <div className="h-full overflow-y-auto px-2 py-3 md:p-6 lg:p-8 max-w-[1120px] mx-auto pb-24 md:pb-8">
               {renderContent()}
             </div>
           </div>
@@ -774,6 +811,13 @@ function AppContent() {
 
       {/* Reminder Alerts - checks and shows browser notifications */}
       <ReminderAlerts />
+
+      {/* Notification Panel */}
+      <NotificationPanel
+        notifications={notifications}
+        onDismiss={dismissNotification}
+        onNavigate={handleNavigate}
+      />
     </div>
   );
 }

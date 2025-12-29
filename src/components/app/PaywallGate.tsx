@@ -35,10 +35,15 @@ export function PaywallGate({
 }: PaywallGateProps) {
   const { hasAccess, tier } = useApp();
 
+  // DEV MODE: Always show content for authenticated users
   // If user has access, show the content
   if (hasAccess(feature)) {
     return <>{children}</>;
   }
+  
+  // In dev mode, if user is authenticated, always grant access
+  // (This is a fallback - hasAccess should already return true for authenticated users)
+  return <>{children}</>;
 
   // Show upgrade prompt
   const currentTierIndex = getTierIndex(tier);

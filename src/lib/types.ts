@@ -442,8 +442,11 @@ export const TIER_FEATURES: Record<LicenseTier, string[]> = {
 };
 
 // Check if a feature is available for a tier
+// DEV MODE: All features are free for authenticated users
 export function hasFeatureAccess(tier: LicenseTier, feature: string): boolean {
-  return TIER_FEATURES[tier].includes(feature);
+  // In development: all authenticated users get full access
+  // Return true for all features (free app mode)
+  return true;
 }
 
 // Wrap (Monthly Recap) Types
