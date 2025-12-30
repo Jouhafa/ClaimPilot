@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useRef, useEffect } from "react";
 import { motion } from "framer-motion";
 import { PieChart, Pie, Cell, ResponsiveContainer } from "recharts";
 import { useReducedMotion, getAnimationDuration } from "@/lib/hooks/useReducedMotion";
@@ -47,9 +47,17 @@ export function AnimatedDonutChart({
   const prefersReducedMotion = useReducedMotion();
   const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
   const [tooltipPosition, setTooltipPosition] = useState<{ x: number; y: number } | null>(null);
-
-  // Limit segments for performance
-  const displayData = useMemo(() => data.slice(0, maxSegments), [data, maxSegments]);
+  
+  // Create stable display data - use JSON.stringify for deep comparison
+  const dataKey = JSON.stringify(data.slice(0, maxSegments).map(d => ({ name: d.name, value: d.value, color: d.color })));
+  
+  const displayData = useMemo(() => {
+    return data.slice(0, maxSegments).map(item => ({
+      name: String(item.name),
+      value: Number(item.value),
+      color: String(item.color),
+    }));
+  }, [dataKey, maxSegments]);
 
   const total = useMemo(
     () => displayData.reduce((sum, d) => sum + d.value, 0),
@@ -92,13 +100,13 @@ export function AnimatedDonutChart({
 
   return (
     <motion.div
-      className="relative"
-      style={{ height }}
+      className="relative w-full"
+      style={{ height: `${height}px`, minHeight: `${height}px`, minWidth: 0 }}
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       transition={{ duration: entranceDuration / 1000 }}
     >
-      <ResponsiveContainer width="100%" height="100%">
+      <ResponsiveContainer width="100%" height="100%" minHeight={height} minWidth={0}>
         <PieChart>
           <Pie
             data={displayData}
@@ -114,7 +122,8 @@ export function AnimatedDonutChart({
             }}
             stroke="hsl(var(--background))"
             strokeWidth={2}
-            animationDuration={prefersReducedMotion ? 0 : entranceDuration}
+            isAnimationActive={false}
+            animationDuration={0}
             animationEasing="ease-out"
           >
             {displayData.map((entry, index) => {
