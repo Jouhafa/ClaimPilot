@@ -13,7 +13,7 @@ import { SplitTransactionModal } from "./SplitTransactionModal";
 import { DuplicateDetector } from "./DuplicateDetector";
 import { MerchantManager } from "./MerchantManager";
 import { PaginationControls } from "@/components/ui/pagination";
-import { getAutoTagStats, findSimilarTransactions } from "@/lib/autoTagger";
+import { getAutoTagStats, findSimilarTransactions, autoTagTransactions } from "@/lib/autoTagger";
 import { findDuplicates, calculateCurrencyTotals, CATEGORY_CONFIG, type TransactionCategory } from "@/lib/types";
 import type { Transaction, TransactionTag } from "@/lib/types";
 import { cn } from "@/lib/utils";
@@ -38,6 +38,8 @@ import {
   Check,
   Filter,
   SlidersHorizontal,
+  Loader2,
+  Upload,
   // Category icons
   ShoppingCart,
   Utensils,
@@ -159,6 +161,12 @@ export function TransactionsReviewTab({ onNavigate }: TransactionsReviewTabProps
   const [showScreenshotModal, setShowScreenshotModal] = useState(false);
   const [showCategoryDropdown, setShowCategoryDropdown] = useState(false);
   const [showFilters, setShowFilters] = useState(true);
+  
+  // Screenshot processing state
+  const [screenshotFiles, setScreenshotFiles] = useState<File[]>([]);
+  const [isProcessingScreenshot, setIsProcessingScreenshot] = useState(false);
+  const [screenshotError, setScreenshotError] = useState<string | null>(null);
+  const [parsedScreenshotTransactions, setParsedScreenshotTransactions] = useState<Transaction[]>([]);
   
   // Manual transaction form state
   const [manualForm, setManualForm] = useState({
@@ -1854,31 +1862,227 @@ export function TransactionsReviewTab({ onNavigate }: TransactionsReviewTabProps
       {/* Screenshot Upload Modal */}
       {showScreenshotModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center">
-          <div className="fixed inset-0 bg-black/50" onClick={() => setShowScreenshotModal(false)} />
-          <div className="relative bg-background rounded-lg shadow-xl w-full max-w-lg mx-4">
-            <div className="px-6 py-4 border-b flex items-center justify-between">
-              <h2 className="text-lg font-semibold">Upload Screenshots</h2>
-              <button onClick={() => setShowScreenshotModal(false)} className="p-1 hover:bg-muted rounded">
+          <div className="fixed inset-0 bg-black/50" onClick={() => {
+            if (!isProcessingScreenshot) {
+              setShowScreenshotModal(false);
+              setScreenshotFiles([]);
+              setParsedScreenshotTransactions([]);
+              setScreenshotError(null);
+            }
+          }} />
+          <div className="relative bg-background rounded-lg shadow-xl w-full max-w-2xl mx-4 max-h-[90vh] overflow-hidden flex flex-col">
+            <div className="px-6 py-4 border-b flex items-center justify-between flex-shrink-0">
+              <h2 className="text-lg font-semibold">
+                {parsedScreenshotTransactions.length > 0 ? "Review Extracted Transactions" : "Upload Screenshots"}
+              </h2>
+              <button 
+                onClick={() => {
+                  if (!isProcessingScreenshot) {
+                    setShowScreenshotModal(false);
+                    setScreenshotFiles([]);
+                    setParsedScreenshotTransactions([]);
+                    setScreenshotError(null);
+                  }
+                }} 
+                className="p-1 hover:bg-muted rounded"
+                disabled={isProcessingScreenshot}
+              >
                 <X className="w-5 h-5" />
               </button>
             </div>
-            <div className="p-6">
-              <div 
-                className="border-2 border-dashed rounded-lg p-8 text-center hover:border-primary/50 transition-colors cursor-pointer"
+            <div className="p-6 overflow-y-auto flex-1">
+              {/* Step 1: Upload */}
+              {parsedScreenshotTransactions.length === 0 && !isProcessingScreenshot && (
+                <>
+                  <input
+                    type="file"
+                    id="screenshot-upload"
+                    accept="image/*,.pdf"
+                    multiple
+                    className="hidden"
+                    onChange={(e) => {
+                      if (e.target.files && e.target.files.length > 0) {
+                        setScreenshotFiles(Array.from(e.target.files));
+                        setScreenshotError(null);
+                      }
+                    }}
+                  />
+                  <label 
+                    htmlFor="screenshot-upload"
+                    className="border-2 border-dashed border-slate-300 dark:border-zinc-600 rounded-lg p-8 text-center hover:border-[#e75b4e] hover:bg-[rgba(231,91,78,0.05)] transition-colors cursor-pointer block"
+                  >
+                    <Upload className="w-12 h-12 mx-auto text-slate-400 mb-4" />
+                    <p className="text-sm font-medium mb-1 text-slate-700 dark:text-slate-200">Drop screenshots here or click to upload</p>
+                    <p className="text-xs text-muted-foreground">
+                      Upload transaction screenshots to extract data automatically
+                    </p>
+                  </label>
+                  
+                  {/* Selected files preview */}
+                  {screenshotFiles.length > 0 && (
+                    <div className="mt-4 p-3 bg-slate-50 dark:bg-zinc-800 rounded-lg">
+                      <p className="text-sm font-medium mb-2">{screenshotFiles.length} file(s) selected:</p>
+                      <div className="space-y-1">
+                        {screenshotFiles.map((file, idx) => (
+                          <div key={idx} className="flex items-center justify-between text-sm">
+                            <span className="truncate text-slate-600 dark:text-slate-300">{file.name}</span>
+                            <button
+                              onClick={() => setScreenshotFiles(prev => prev.filter((_, i) => i !== idx))}
+                              className="text-red-500 hover:text-red-700 ml-2"
+                            >
+                              <X className="w-4 h-4" />
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  
+                  {screenshotError && (
+                    <div className="mt-4 p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg text-sm text-red-600 dark:text-red-400">
+                      {screenshotError}
+                    </div>
+                  )}
+                  
+                  <p className="text-xs text-muted-foreground text-center mt-4">
+                    Supports PNG, JPG, PDF files
+                  </p>
+                </>
+              )}
+              
+              {/* Step 2: Processing */}
+              {isProcessingScreenshot && (
+                <div className="py-12 text-center">
+                  <Loader2 className="w-12 h-12 mx-auto text-[#e75b4e] animate-spin mb-4" />
+                  <p className="text-sm font-medium text-slate-700 dark:text-slate-200">Processing screenshots...</p>
+                  <p className="text-xs text-muted-foreground mt-1">This may take 30-60 seconds</p>
+                </div>
+              )}
+              
+              {/* Step 3: Review parsed transactions */}
+              {parsedScreenshotTransactions.length > 0 && !isProcessingScreenshot && (
+                <div className="space-y-3">
+                  <p className="text-sm text-muted-foreground mb-4">
+                    Found {parsedScreenshotTransactions.length} transaction(s). Review and confirm to add them.
+                  </p>
+                  <div className="max-h-[300px] overflow-y-auto space-y-2">
+                    {parsedScreenshotTransactions.map((tx, idx) => (
+                      <div key={idx} className="p-3 bg-slate-50 dark:bg-zinc-800 rounded-lg flex items-center justify-between">
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2">
+                            <span className="text-sm font-medium truncate">{tx.merchant}</span>
+                            <span className="text-xs text-muted-foreground">{tx.date}</span>
+                          </div>
+                          <p className="text-xs text-muted-foreground truncate">{tx.description}</p>
+                        </div>
+                        <div className="text-right ml-4">
+                          <span className={cn("text-sm font-mono", tx.amount >= 0 ? "text-green-600" : "text-slate-700 dark:text-slate-200")}>
+                            {tx.amount.toFixed(2)} {tx.currency}
+                          </span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+            
+            {/* Footer */}
+            <div className="px-6 py-4 border-t flex justify-end gap-2 flex-shrink-0 bg-background">
+              <Button 
+                variant="outline" 
                 onClick={() => {
                   setShowScreenshotModal(false);
-                  onNavigate?.("import");
+                  setScreenshotFiles([]);
+                  setParsedScreenshotTransactions([]);
+                  setScreenshotError(null);
                 }}
+                disabled={isProcessingScreenshot}
               >
-                <Camera className="w-12 h-12 mx-auto text-muted-foreground mb-4" />
-                <p className="text-sm font-medium mb-1">Drop screenshots here or click to upload</p>
-                <p className="text-xs text-muted-foreground">
-                  Upload transaction screenshots to extract data automatically
-                </p>
-              </div>
-              <p className="text-xs text-muted-foreground text-center mt-4">
-                Supports PNG, JPG, PDF files
-              </p>
+                Cancel
+              </Button>
+              
+              {parsedScreenshotTransactions.length === 0 && !isProcessingScreenshot && (
+                <Button 
+                  onClick={async () => {
+                    if (screenshotFiles.length === 0) {
+                      setScreenshotError("Please select at least one file");
+                      return;
+                    }
+                    
+                    setIsProcessingScreenshot(true);
+                    setScreenshotError(null);
+                    
+                    try {
+                      const allTransactions: Transaction[] = [];
+                      
+                      for (const file of screenshotFiles) {
+                        const formData = new FormData();
+                        formData.append("file", file);
+                        
+                        // Use AI vision endpoint for screenshots
+                        const response = await fetch("/api/ai/parse-screenshot-image", {
+                          method: "POST",
+                          body: formData,
+                        });
+                        
+                        if (!response.ok) {
+                          const errorData = await response.json();
+                          throw new Error(errorData.error || "Failed to process file");
+                        }
+                        
+                        const result = await response.json();
+                        
+                        if (result.transactions && result.transactions.length > 0) {
+                          // Add source info to transactions
+                          const txsWithSource = result.transactions.map((tx: Transaction) => ({
+                            ...tx,
+                            id: tx.id || uuidv4(),
+                            note: `Extracted from screenshot: ${file.name}`,
+                          }));
+                          allTransactions.push(...txsWithSource);
+                        }
+                      }
+                      
+                      if (allTransactions.length === 0) {
+                        setScreenshotError("No transactions found in the uploaded files. Try uploading clearer images or a different format.");
+                        setIsProcessingScreenshot(false);
+                        return;
+                      }
+                      
+                      // Auto-tag the transactions
+                      const taggedTransactions = autoTagTransactions(allTransactions, rules);
+                      setParsedScreenshotTransactions(taggedTransactions);
+                      
+                    } catch (err) {
+                      setScreenshotError(err instanceof Error ? err.message : "Failed to process screenshots");
+                    } finally {
+                      setIsProcessingScreenshot(false);
+                    }
+                  }}
+                  disabled={screenshotFiles.length === 0}
+                  className="rounded-md"
+                  style={{ backgroundColor: "rgba(231, 91, 78, 0.9)" }}
+                >
+                  Process Screenshots
+                </Button>
+              )}
+              
+              {parsedScreenshotTransactions.length > 0 && !isProcessingScreenshot && (
+                <Button 
+                  onClick={() => {
+                    addTransactions(parsedScreenshotTransactions);
+                    setShowScreenshotModal(false);
+                    setScreenshotFiles([]);
+                    setParsedScreenshotTransactions([]);
+                    setScreenshotError(null);
+                  }}
+                  className="rounded-full"
+                  style={{ backgroundColor: "rgba(231, 91, 78, 0.9)" }}
+                >
+                  Add {parsedScreenshotTransactions.length} Transaction(s)
+                </Button>
+              )}
             </div>
           </div>
         </div>
