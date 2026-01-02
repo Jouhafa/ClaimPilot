@@ -2077,7 +2077,7 @@ export function TransactionsReviewTab({ onNavigate }: TransactionsReviewTabProps
                     setParsedScreenshotTransactions([]);
                     setScreenshotError(null);
                   }}
-                  className="rounded-full"
+                  className="rounded-md"
                   style={{ backgroundColor: "rgba(231, 91, 78, 0.9)" }}
                 >
                   Add {parsedScreenshotTransactions.length} Transaction(s)
