@@ -13,6 +13,7 @@ import { TopNav } from "./TopNav";
 import { ImportTab } from "./ImportTab";
 import { TransactionsTab } from "./TransactionsTab";
 import { ReviewTab } from "./ReviewTab";
+import { TransactionsReviewTab } from "./TransactionsReviewTab";
 import { ReimbursementsTab } from "./ReimbursementsTab";
 import { CardSafetyTab } from "./CardSafetyTab";
 import { ExportTab } from "./ExportTab";
@@ -568,9 +569,9 @@ function AppContent() {
           </div>
         );
       case "review":
-        return <ReviewTab onNavigate={handleNavigate} />;
+        return <TransactionsReviewTab onNavigate={handleNavigate} />;
       case "transactions":
-        return <TransactionsTab />;
+        return <TransactionsReviewTab onNavigate={handleNavigate} />;
       case "reimbursements":
         return (
           <PaywallGate
@@ -741,6 +742,12 @@ function AppContent() {
         {activeTab === "coach" || activeTab === "learn" ? (
           <div className="relative h-full overflow-hidden">
             {renderContent()}
+          </div>
+        ) : activeTab === "review" || activeTab === "transactions" ? (
+          <div className="h-full overflow-hidden">
+            <div className="h-full overflow-y-auto px-4 py-3 md:px-6 md:py-4 pb-24 md:pb-4">
+              {renderContent()}
+            </div>
           </div>
         ) : (
           <div className="h-full overflow-hidden">

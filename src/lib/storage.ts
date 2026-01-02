@@ -25,6 +25,7 @@ const REMINDERS_KEY = "claimpilot_reminders";
 const ACCOUNTS_KEY = "claimpilot_accounts";
 const EXPENSE_COVERAGE_KEY = "claimpilot_expense_coverage";
 const BUDGETS_KEY = "claimpilot_budgets";
+const AIDEEPDIVE_PREFERENCE_KEY = "claimpilot_ai_deepdive_enabled";
 
 // Transactions
 export async function saveTransactions(transactions: Transaction[]): Promise<void> {
@@ -624,6 +625,16 @@ export async function deleteBudget(id: string): Promise<Budget[]> {
   const filtered = budgets.filter((b) => b.id !== id);
   await saveBudgets(filtered);
   return filtered;
+}
+
+// AI Deep Dive Preference
+export async function saveAIDeepDivePreference(enabled: boolean): Promise<void> {
+  await set(AIDEEPDIVE_PREFERENCE_KEY, enabled);
+}
+
+export async function loadAIDeepDivePreference(): Promise<boolean> {
+  const data = await get<boolean>(AIDEEPDIVE_PREFERENCE_KEY);
+  return data ?? false; // Default to false (OFF)
 }
 
 // Delete all data (for privacy/data controls)

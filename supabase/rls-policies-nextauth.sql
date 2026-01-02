@@ -213,3 +213,4 @@ CREATE POLICY "Users can manage own wrap snapshots"
 -- Then set the session variable before queries:
 -- SET LOCAL app.user_id = 'user-uuid-here';
 
+
